@@ -31,6 +31,7 @@ import logging
 import math
 import re
 import unicodedata
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -233,9 +234,9 @@ def search_places(archive, query, limit=MAX_RESULTS, max_chunks=MAX_CHUNKS):
     keys = prefixes_for(q, manifest)
     if len(keys) > max_chunks:
         log.debug(
-            "%s: query %r spans %d chunks, reading %d",
-            getattr(archive, "filename", "?"),
-            query,
+            "%s: query %s spans %d chunks, reading %d",
+            loggable(getattr(archive, "filename", "?")),
+            loggable(repr(query)),
             len(keys),
             max_chunks,
         )

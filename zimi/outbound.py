@@ -25,6 +25,7 @@ Two things live here:
 
 import logging
 import os
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -110,7 +111,7 @@ class FetchPolicy:
         # is never reported as made.
         if self.mode()[0] != mode:
             return None, "unwritable"
-        log.info("%s: %s", self.name, mode)
+        log.info("%s: %s", loggable(self.name), loggable(mode))
         return mode, None
 
 

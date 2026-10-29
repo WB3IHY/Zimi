@@ -34,6 +34,7 @@ import posixpath
 import urllib.parse
 
 from zimi import nautilus as _nautilus
+from zimi.safety import join_inside
 
 PAGE_EXTS = _nautilus.PAGE_EXTS | {".xhtml"}
 MARKDOWN_EXTS = frozenset((".md", ".markdown"))
@@ -295,7 +296,9 @@ def resolve(root, rel, exclude=()):
     when the path is plain but not there."""
     real_root = os.path.realpath(root)
     parts = _parts(rel)
-    joined = os.path.join(real_root, *parts) if parts else real_root
+    joined = join_inside(real_root, *parts)
+    if joined is None:
+        raise OutsideRoot("not a path inside the folder")
     if not os.path.lexists(joined):
         raise FileNotFoundError(rel)
     real = os.path.realpath(joined)
@@ -493,8 +496,8 @@ def walk(root, only=None, exclude=()):
         return
     seen = set()
     for rel in only:
-        fs_path = os.path.join(real_root, *rel.split("/"))
-        if os.path.islink(fs_path):
+        fs_path = join_inside(real_root, *rel.split("/"))
+        if fs_path is None or os.path.islink(fs_path):
             continue
         if os.path.isdir(fs_path):
             if fs_path in exclude:

@@ -53,6 +53,7 @@ from zimi import bookpages, booksources
 from zimi import epub as _epub
 from zimi import server as _srv
 from zimi.details import DetailsBuilder
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -294,7 +295,7 @@ def _books_for(name):
         archive, lock = _get_fts_archive(name)
     except Exception as e:
         archive, lock = None, None
-        log.warning("Bookshelf: could not open %s: %s", name, e)
+        log.warning("Bookshelf: could not open %s: %s", loggable(name), loggable(e))
     if archive is None or lock is None:
         # Nothing to read, so nothing to wait for: the shelf is ready without
         # it. Not kept in _base, so the next look tries the file again.
@@ -308,7 +309,7 @@ def _books_for(name):
             rows = books_of(archive)
     except Exception as e:
         # One malformed ZIM is skipped, never the whole shelf.
-        log.warning("Bookshelf: the listings of %s could not be read: %s", name, e)
+        log.warning("Bookshelf: the listings of %s could not be read: %s", loggable(name), loggable(e))
         rows = []
     with _lock:
         # Last month's build, read before this one, is let go.

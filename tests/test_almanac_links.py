@@ -19,6 +19,7 @@ import re
 import sqlite3
 import sys
 import tempfile
+import threading
 import unittest
 from unittest import mock
 
@@ -70,6 +71,18 @@ class _QidFixtureMixin:
         self._saved_cache_conn = _interlang._qid_cache_conn
         _interlang._qid_cache_conn = None
         self._saved_zim_list = _srv._zim_list_cache
+        # An article opened in a reader frame starts a daemon worker that
+        # writes to the on-demand cache; record each so teardown can wait for
+        # them before the saved connection is put back.
+        self._passive_workers = []
+        real_extract = _srv._qid_passive_extract
+
+        def tracked_extract(*args, **kwargs):
+            self._passive_workers.append(threading.current_thread())
+            return real_extract(*args, **kwargs)
+
+        self._patch_passive = mock.patch.object(_srv, "_qid_passive_extract", tracked_extract)
+        self._patch_passive.start()
         # Isolate the server-side resolved-batch memo so a prior test's answer
         # can't satisfy this one (the key encodes library generation, not the
         # zim-list contents these tests swap in place).
@@ -77,21 +90,24 @@ class _QidFixtureMixin:
         _interlang._almanac_resolve_cache.clear()
 
     def _teardown_qids(self):
+        self._patch_passive.stop()
+        for worker in self._passive_workers:
+            worker.join(timeout=10)
         _interlang._almanac_resolve_cache.clear()
         _interlang._almanac_resolve_cache.update(self._saved_alm_cache)
-        for conn in _interlang._qid_db_pool.values():
-            try:
-                conn.close()
-            except Exception:
-                pass
-        _interlang._qid_db_pool.clear()
+        # Through the server's own close, which waits for a query in flight (a background build may be reading one).
+        with _interlang._qid_db_pool_lock:
+            names = list(_interlang._qid_db_pool)
+        for name in names:
+            _interlang._close_qid_db(name)
         _interlang._qid_db_pool.update(self._saved_pool)
-        if _interlang._qid_cache_conn is not None:
-            try:
-                _interlang._qid_cache_conn.close()
-            except Exception:
-                pass
-        _interlang._qid_cache_conn = self._saved_cache_conn
+        with _interlang._qid_cache_op_lock:  # a background build may be mid-query on it
+            if _interlang._qid_cache_conn is not None:
+                try:
+                    _interlang._qid_cache_conn.close()
+                except Exception:
+                    pass
+            _interlang._qid_cache_conn = self._saved_cache_conn
         _srv._zim_list_cache = self._saved_zim_list
         self._patch_dir.stop()
 

@@ -25,6 +25,7 @@ import urllib.request
 from urllib.parse import urlparse, urlencode, quote
 
 import zimi.server as _srv
+from zimi.safety import join_inside, loggable
 
 log = logging.getLogger("zimi")
 
@@ -1723,7 +1724,7 @@ def _fetch_thumb(url):
     from zimi import p2p as _p2p
 
     if _p2p.is_offline():
-        log.debug("Offline: skipping thumbnail fetch for %s", url)
+        log.debug("Offline: skipping thumbnail fetch for %s", loggable(url))
         return None, None
     # Fetch from Kiwix. Follow redirects only within *.kiwix.org (Kiwix
     # redirects library → opds); a redirect off-Kiwix is blocked (SSRF).
@@ -1739,7 +1740,7 @@ def _fetch_thumb(url):
             # and dropped rather than written into the cache dir.
             data = resp.read(_THUMB_MAX_BYTES + 1)
             if len(data) > _THUMB_MAX_BYTES:
-                log.debug("Thumbnail over %d bytes, dropped: %s", _THUMB_MAX_BYTES, url)
+                log.debug("Thumbnail over %d bytes, dropped: %s", _THUMB_MAX_BYTES, loggable(url))
                 return None, None
         # Write to disk cache
         with open(cache_path, "wb") as f:
@@ -1748,7 +1749,7 @@ def _fetch_thumb(url):
             f.write(ct)
         return data, ct
     except Exception as e:
-        log.debug("Failed to fetch thumbnail from %s: %s", url, e)
+        log.debug("Failed to fetch thumbnail from %s: %s", loggable(url), loggable(e))
         return None, None
 
 
@@ -1896,10 +1897,12 @@ def maybe_persist_full_catalog(total):
     return persist_full_catalog(items)
 
 
-def offline_catalog():
+def _offline_catalog_stamped():
     """The best catalog available without touching the network.
 
-    Returns ``(items, source, as_of)`` where source is "cache", "snapshot" or
+    Returns ``(items, source, as_of, stamp)`` where stamp is the epoch seconds
+    of what it hands back (when the cache was fetched, or the snapshot's build
+    date; 0 when unknown), found from the same one read, and source is "cache", "snapshot" or
     "none", and as_of is an ISO date for the UI to show, or "".
 
     Cache first, always: it is the fresher of the two and it is what the
@@ -1910,7 +1913,7 @@ def offline_catalog():
         as_of = ""
         if fetched_at:
             as_of = datetime.datetime.fromtimestamp(fetched_at).date().isoformat()
-        return items, "cache", as_of
+        return items, "cache", as_of, fetched_at
 
     from zimi import catalog_snapshot
 
@@ -1928,21 +1931,46 @@ def offline_catalog():
             if digest:
                 item["icon_url"] = "/catalog-icon/" + digest
             shipped.append(item)
-        return shipped, "snapshot", catalog_snapshot.built_at()
-    return [], "none", ""
+        built = catalog_snapshot.built_at()
+        stamp = 0
+        if built:
+            try:
+                stamp = datetime.datetime.fromisoformat(built).timestamp()
+            except ValueError:
+                pass
+        return shipped, "snapshot", built, stamp
+    return [], "none", "", 0
 
 
-def _offline_catalog_matching(query):
-    """The catalog on disk (or the package's snapshot), narrowed to `query`."""
-    items, _source, _as_of = offline_catalog()
+def offline_catalog():
+    """``(items, source, as_of)`` of the best catalog without the network (see _offline_catalog_stamped)."""
+    items, source, as_of, _stamp = _offline_catalog_stamped()
+    return items, source, as_of
+
+
+def _offline_catalog_stamp():
+    """Epoch seconds of the catalog offline_catalog() would hand back: when the
+    cache was fetched, or the snapshot's build date. 0 when unknown."""
+    return _offline_catalog_stamped()[3]
+
+
+def _offline_catalog_matching_stamped(query):
+    """``(items, stamp)``: the catalog on disk (or the package's snapshot),
+    narrowed to `query`, and its stamp, from one read."""
+    items, _source, _as_of, stamp = _offline_catalog_stamped()
     if not query:
-        return items
+        return items, stamp
     needle = query.lower()
     return [
         it
         for it in items
         if needle in str(it.get("title", "")).lower() or needle in str(it.get("name", "")).lower()
-    ]
+    ], stamp
+
+
+def _offline_catalog_matching(query):
+    """The catalog on disk (or the package's snapshot), narrowed to `query`."""
+    return _offline_catalog_matching_stamped(query)[0]
 
 
 def _fetch_kiwix_catalog(
@@ -2009,9 +2037,9 @@ def _fetch_kiwix_catalog(
         # behind it, the same stale-while-revalidate as an expired page. The
         # first browse used to wait on Kiwix (Eric: "if catalog is baked in
         # and cached why did it take a while when I clicked maps").
-        fallback = _offline_catalog_matching(query)
+        fallback, fallback_stamp = _offline_catalog_matching_stamped(query)
         if fallback:
-            _catalog_stale_ts = _catalog_stale_ts or time.time()
+            _catalog_stale_ts = fallback_stamp or time.time()
             _kick_catalog_refresh(query, lang, count, start, _internal=_internal)
             return len(fallback), fallback[start : start + count], None
 
@@ -4077,11 +4105,13 @@ def _enqueue_zim_download(url, mirrors, filename, size_bytes=None, extra=None):
     # The catalog's downloads go to NOMAD's library through NOMAD, when asked to.
     if nomadapi.managed() and not (extra or {}).get("_source"):
         return _hand_to_nomad(url, filename, size_bytes, extra)
-    dest = os.path.join(_srv.ZIM_DIR, filename)
+    dest = join_inside(_srv.ZIM_DIR, filename)
+    if dest is None:
+        return None, "Invalid filename in URL"
 
     space_err = _refuse_for_disk_space(size_bytes, dest=dest)
     if space_err:
-        log.info("download rejected: %s (%s)", space_err, filename)
+        log.info("download rejected: %s (%s)", loggable(space_err), loggable(filename))
         return None, space_err
 
     # Detect if this replaces an existing ZIM (update vs fresh download)
@@ -4121,10 +4151,10 @@ def _enqueue_zim_download(url, mirrors, filename, size_bytes=None, extra=None):
         queued = _enqueue_or_start(dl)
     log.info(
         "Download %s: %s (%d mirror%s available)",
-        "queued" if queued else "started",
-        filename,
+        loggable("queued" if queued else "started"),
+        loggable(filename),
         len(mirrors),
-        "s" if len(mirrors) != 1 else "",
+        loggable("s" if len(mirrors) != 1 else ""),
     )
     return dl_id, None
 
@@ -4164,11 +4194,11 @@ def _hand_to_nomad(url, filename, size_bytes, extra):
     try:
         job_id = nomadapi.hand_off(dl, named.get("title") or named.get("name"))
     except nomadapi.NomadError as e:
-        log.info("Project NOMAD refused %s: %s", filename, e)
+        log.info("Project NOMAD refused %s: %s", loggable(filename), loggable(e))
         return None, str(e)
     with _download_lock:
         _active_downloads[dl_id] = dl
-    log.info("Download handed to Project NOMAD: %s (job %s)", filename, job_id)
+    log.info("Download handed to Project NOMAD: %s (job %s)", loggable(filename), loggable(job_id))
 
     def landed(base):
         gone = [p for p in nomadapi.nomad_files().values() if not os.path.exists(p)]
@@ -4239,7 +4269,7 @@ def _start_download(url, size_bytes=None, actor=None):
             url = candidate
     if not _is_trusted_kiwix_url(url):
         # The 400 alone is undebuggable from a syslog (issue #26) — say why.
-        log.info("download rejected: untrusted URL %.120r", url)
+        log.info("download rejected: untrusted URL %.120s", loggable(repr(url)))
         return None, "URL not from a trusted Kiwix host"
 
     # OPDS catalog provides .meta4 metalink URLs. Resolving the mirror list
@@ -4257,7 +4287,7 @@ def _start_download(url, size_bytes=None, actor=None):
     # into the download record.
     filename, err = _validate_zim_filename(url.split("/")[-1])
     if filename is None:
-        log.info("download rejected: %s (url=%.120r)", err, url)
+        log.info("download rejected: %s (url=%.120s)", loggable(err), loggable(repr(url)))
         return None, err
     extra = {"_activity": {"actor": actor}}
     if meta4_url:
@@ -4352,11 +4382,13 @@ def _start_import(url, size_bytes=None, actor=None):
 
         if _ng.PrivateGuard().refuses(urlparse(url).hostname or ""):
             return None, "That address is on a private network"
-    dest = os.path.join(_srv.ZIM_DIR, filename)
+    dest = join_inside(_srv.ZIM_DIR, filename)
+    if dest is None:
+        return None, "Invalid filename in URL"
 
     space_err = _refuse_for_disk_space(size_bytes, dest=dest)
     if space_err:
-        log.info("import rejected: %s (%s)", space_err, filename)
+        log.info("import rejected: %s (%s)", loggable(space_err), loggable(filename))
         return None, space_err
 
     with _download_lock:

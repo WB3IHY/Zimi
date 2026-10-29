@@ -26,6 +26,7 @@ import time
 import urllib.request
 from abc import ABC, abstractmethod
 from typing import Any
+from zimi.safety import join_inside, loggable
 
 log = logging.getLogger(__name__)
 
@@ -970,7 +971,10 @@ class LibtorrentBackend(BTBackend):
     # ── resume persistence ────────────────────────────────────────────────
 
     def _resume_path(self, tid: str) -> str:
-        return os.path.join(self.resume_dir, tid + ".fastresume")
+        path = join_inside(self.resume_dir, tid + ".fastresume")
+        if path is None:
+            raise ValueError("not a torrent id")
+        return path
 
     def _write_resume_file(self, alert) -> None:
         lt = _lt()
@@ -1193,7 +1197,7 @@ class LibtorrentBackend(BTBackend):
             try:
                 self._ses.remove_torrent(h, flags)
             except Exception as e:
-                log.debug("remove_torrent failed for %s: %s", tid, e)
+                log.debug("remove_torrent failed for %s: %s", loggable(tid), loggable(e))
         # The resume file goes with the torrent, and only then. A stopped
         # engine has no torrents: stop() cleared the handles after writing
         # every one's resume data, and that data is what the next start
@@ -1207,7 +1211,7 @@ class LibtorrentBackend(BTBackend):
             return
         try:
             os.unlink(self._resume_path(tid))
-        except OSError:
+        except (OSError, ValueError):
             pass
 
     def status(self, tid: str) -> dict:

@@ -97,6 +97,9 @@ import certifi
 from libzim.reader import Archive
 from libzim.suggestion import SuggestionSearcher
 
+from zimi import changes as _changes
+from zimi.safety import loggable
+
 # PyMuPDF, for reading PDFs embedded in ZIM files.
 #
 # `pymupdf` is the module's real name; `fitz` is the historical alias, and
@@ -126,7 +129,7 @@ except ImportError:
 # SSL context using certifi CA bundle (PyInstaller bundles lack system certs)
 SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
-ZIMI_VERSION = "1.14.1"
+ZIMI_VERSION = "1.15.0"
 
 
 def bundled(module):
@@ -502,7 +505,7 @@ def _shape_backfill_pass(_zw):
         if shape:
             _shape_store({name: shape})
             done += 1
-            log.debug("measured %s: %s", name, shape.get("entries"))
+            log.debug("measured %s: %s", loggable(name), loggable(shape.get("entries")))
         time.sleep(_SHAPE_PAUSE_SECONDS)
     if done:
         log.info("measured what %d ZIM(s) are made of", done)
@@ -878,6 +881,8 @@ CONFIG_ENV_SETTINGS = (
     # zimi.mcp_server`, which kept the full set for configs written before.
     ConfigSetting("mcp_tools", "ZIMI_MCP_TOOLS", "str", "", "lean", False),
     ConfigSetting("index_throttle", "ZIMI_INDEX_THROTTLE", "bool", "1", None, False),
+    # Zimi's own ZIMs (zimi/ownzims.py: ZimiGames, the Almanac), committed in the package.
+    ConfigSetting("builtin_zims", "ZIMI_BUILTIN_ZIMS", "bool", "1", None, False),
     # The one directory tree the WEB may package a ZIM from (zimi.manage's
     # folder and import modes, and the directory picker that feeds them).
     # Unset — the default — means the web cannot package a server path at all;
@@ -1788,7 +1793,7 @@ def _atomic_write_json(path, data, indent=None):
         if hasattr(os, "fchmod"):
             os.fchmod(fd, 0o644)
     except OSError as e:
-        log.warning("Atomic write failed for %s: %s", path, e)
+        log.warning("Atomic write failed for %s: %s", loggable(path), loggable(e))
         return False
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -1803,7 +1808,7 @@ def _atomic_write_json(path, data, indent=None):
         return True
     except (OSError, ValueError) as e:
         # ValueError: text that is not UTF-8 (a lone surrogate) cannot be written.
-        log.warning("Atomic write failed for %s: %s", path, e)
+        log.warning("Atomic write failed for %s: %s", loggable(path), loggable(e))
         try:
             os.unlink(tmp)
         except OSError:
@@ -2336,7 +2341,7 @@ def fieldguide_enabled():
     return os.environ.get(FIELDGUIDE_ENV, "").strip().lower() in ("1", "true", "yes", "on")
 
 
-APP_NAMES = ("maps", "tube", "exchange", "reddot", "wiki", "books", "dictionary")
+APP_NAMES = ("maps", "tube", "exchange", "reddot", "wiki", "books", "dictionary", "games", "almanac")
 # Apps offered only when named: a comma list in ZIMI_APPS (or a saved list)
 # that names one turns it on; "1", "all", the default and a saved True leave
 # it off. None now: Reddot was one from 1.13.1 to 1.14.0, and home shows an
@@ -2453,6 +2458,35 @@ def set_apps_enabled(value):
     return bool(shown), None
 
 
+def set_own_zim_removed(name, gone):
+    """Remove one of Zimi's own ZIMs from this server (or add it back), the
+    live library following at once: no rescan of the others, no download.
+    Open windows hear it as the library changing (_set_listing). False for a
+    name that is not one of them."""
+    from zimi import ownzims
+
+    if not ownzims.set_removed(name, gone):
+        return False
+    own = next(o for o in ownzims.OWN if o.name == name)
+    path = ownzims.zim_path(own)
+    done = False
+    try:
+        if gone:
+            done = bool(path) and unregister_zim_file(os.path.basename(path))
+        elif path:
+            register_zim_file(path)
+            # Done only if the package's file now holds the name: a same-name copy in the library can outrank it (the scan's rules decide)
+            done = (_zim_files_cache or {}).get(name) == path
+    except Exception as e:
+        log.warning("Incremental change of %s failed (%s), rescanning the library", str(name).replace("\r", "").replace("\n", ""), e)
+    if not done:
+        with _zim_lock:
+            load_cache(force=True)
+    _search_cache_clear()
+    _suggest_cache_clear()
+    return True
+
+
 def build_rank(entry):
     """What makes one build of a thing newer than another: its date, then
     its size (a maxi over a nopic of the same month)."""
@@ -2519,8 +2553,11 @@ def _effective_category(name, path, kind=None):
     what the ZIM says it is (``kind``, from its metadata): a map is a map
     whatever the file was renamed to.
     """
+    from zimi import ownzims
+
     return (
         _folder_category(_zim_folder(path))
+        or ownzims.category_of(path)
         or ("Maps" if kind == "map" else "Reddit" if kind == "reddit" else None)
         or _categorize_zim(name)
     )
@@ -2700,6 +2737,29 @@ _MASS_STAMP_WINDOW = 120.0  # seconds
 _MASS_STAMP_MTIME_TOL = 3600.0  # first_seen must be within 1h of file mtime to be real
 _zim_list_cache = None
 _zim_files_cache = None  # {name: path} — cached at startup, ZIM dir is read-only
+_listing_seen = None  # what _set_listing last saw in the listing
+
+
+def _set_listing(listing):
+    """The library's listing, replaced. When what it holds changed (a ZIM
+    added, removed or replaced), every open window is told (changes.py
+    "library") and draws the library again, without a reload; a rescan that
+    found the same files tells nobody. Call under _zim_lock, or at load."""
+    global _zim_list_cache, _listing_seen
+    _zim_list_cache = listing
+    seen = frozenset(
+        (z.get("name"), z.get("file"), z.get("size_bytes"), z.get("entries"))
+        for z in listing or []
+    )
+    if seen != _listing_seen:
+        told = _listing_seen is not None  # the first listing is no change
+        _listing_seen = seen
+        if told:
+            _changes.announce("library", None)
+        if bundled("gamelinks"):  # zimi-mcp ships no games
+            from zimi import gamelinks
+
+            gamelinks.refresh_async()  # the games' encyclopedia links follow the library, off the request path
 
 
 # ── Per-request ZIM allow context (multi-user v1) ────────────────────────────
@@ -2970,6 +3030,31 @@ def _zim_pick(cands):
     )
 
 
+def _own_copy_first(name, cands):
+    """Zimi's own ZIM (the package's file, tier 3) against a same-name copy
+    someone put in their library, e.g. zimi_games_2026-10.zim from a release
+    page. Only the package's file counts as Zimi's own; the copy is an
+    ordinary ZIM. The package's file serves the name unless the copy is a
+    strictly newer edition (the package's pages, links and strings go with
+    its own build, so an equal or older copy never stands in for it). The
+    loser is shadowed like any other collision, and can be deleted once the
+    package's file is removed from the library. Edits ``cands`` in place."""
+    from zimi import ownzims
+
+    own = [i for i, (_tier, path) in enumerate(cands) if ownzims.is_own_path(path)]
+    if not own or len(own) == len(cands):
+        return
+
+    def date(path):
+        m = _DATE_TOKEN_RE.search(os.path.basename(path).lower())
+        return m.group(1) if m else ""
+
+    newest_copy = max(date(p) for i, (_t, p) in enumerate(cands) if i not in own)
+    for i in own:
+        if date(cands[i][1]) >= newest_copy:
+            cands[i] = (-1, cands[i][1])
+
+
 def _scan_zim_files():
     """Scan ZIM_DIR plus exactly one level of subdirectories for ZIM files.
     Returns {short_name: path} mapping.
@@ -3015,15 +3100,22 @@ def _scan_zim_files():
     from zimi import libfolders
 
     libfolders.refresh()
+    # Zimi's own ZIMs (ZimiGames, the Almanac) come last: committed in the
+    # package, and never shadowing a file the operator put in the library.
+    from zimi import ownzims
+
     groups = {}  # base name -> [(tier, path)], in scan order
     for tier, paths in (
         (0, root_paths),
         (1, sub_paths),
         (2, libfolders.zim_paths()),
+        (3, ownzims.zim_paths()),
     ):
         for path in paths:
             name = _zim_base_name(os.path.basename(path))
             groups.setdefault(name, []).append((tier, path))
+    for name, cands in groups.items():
+        _own_copy_first(name, cands)
     zims = {name: _zim_pick(cands) for name, cands in groups.items()}
     for name, cands in groups.items():
         if len(cands) > 1:
@@ -3241,7 +3333,7 @@ def get_archive(name):
             try:
                 archive = open_archive(zims[name])
             except (RuntimeError, Exception) as e:
-                log.warning(f"Skipping corrupt ZIM '{name}': {e}")
+                log.warning("Skipping corrupt ZIM '%s': %s", loggable(name), loggable(e))
                 return None
             _archive_pool[name] = archive
             return archive
@@ -3375,7 +3467,7 @@ def _extract_zim_metadata(name, path):
                 elif key.startswith("Illustration_48x48"):
                     has_icon = True
             except Exception as e:
-                log.debug("Failed to read metadata key %r for %s: %s", key, name, e)
+                log.debug("Failed to read metadata key %s for %s: %s", loggable(repr(key)), loggable(name), loggable(e))
                 pass
         try:
             me = archive.main_entry
@@ -3383,7 +3475,7 @@ def _extract_zim_metadata(name, path):
                 me = me.get_redirect_entry()
             main_path = me.path
         except Exception as e:
-            log.debug("Failed to read main entry for %s: %s", name, e)
+            log.debug("Failed to read main entry for %s: %s", loggable(name), loggable(e))
             pass
         cold_kind = _zim_kind(meta_scraper, meta_tags, meta_name)
         if cold_kind == "map":
@@ -3391,7 +3483,7 @@ def _extract_zim_metadata(name, path):
         elif cold_kind == "reddit":
             map_facts = _reddit_facts(archive)
     except Exception as e:
-        log.debug("Failed to open archive for metadata extraction %s: %s", name, e)
+        log.debug("Failed to open archive for metadata extraction %s: %s", loggable(name), loggable(e))
         entry_count = "?"
     # Fall back to date from filename if not in metadata
     if not meta_date:
@@ -3916,7 +4008,7 @@ def load_cache(force=False):
     # the dated-filename inherit fix (pre-fix updates mis-stamped them 'New').
     healed_updates = _self_heal_update_stamps(info, file_cache)
 
-    _zim_list_cache = info
+    _set_listing(info)
     elapsed = time.time() - t0
 
     # Persist cache if we scanned anything new, backfilled a legacy first_seen
@@ -4023,7 +4115,7 @@ def _domain_map_entries_for_zim(name, filename, source_meta, main_path=""):
             else:
                 _add(source_meta.split("/")[0])
         except Exception as e:
-            log.debug("Failed to parse Source %r for %s: %s", source_meta, name, e)
+            log.debug("Failed to parse Source %s for %s: %s", loggable(repr(source_meta)), loggable(name), loggable(e))
     elif main_path:
         # A capture's main entry path IS the site's address
         # ("draculatheme.com/contribute"), which is the discovery interlang
@@ -4126,7 +4218,7 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
     try:
         st = os.stat(path)
     except OSError as e:
-        log.warning("register_zim_file: cannot stat %s: %s", path, e)
+        log.warning("register_zim_file: cannot stat %s: %s", loggable(path), loggable(e))
         return False
 
     # Mirror _scan_zim_files' collision rule: a root-level file always beats a
@@ -4152,9 +4244,9 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
             log.info(
                 "ZIM name collision '%s': %s outranks %s, a different language; "
                 "rescanning",
-                name,
-                filename,
-                os.path.basename(existing_path),
+                loggable(name),
+                loggable(filename),
+                loggable(os.path.basename(existing_path)),
             )
             return False
         name = _zim_lang_name(filename)
@@ -4163,9 +4255,9 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
             # That name is another file's own, never a language name to take.
             log.info(
                 "ZIM name collision '%s': keeping %s, new %s stays shadowed",
-                name,
-                os.path.basename(existing_path),
-                filename,
+                loggable(name),
+                loggable(os.path.basename(existing_path)),
+                loggable(filename),
             )
             _note_shadowed(path, existing_path)
             return True  # library correctly unchanged
@@ -4175,9 +4267,9 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
         # already being served.
         log.info(
             "ZIM name collision '%s': keeping %s, new %s stays shadowed",
-            name,
-            os.path.basename(existing_path),
-            filename,
+            loggable(name),
+            loggable(os.path.basename(existing_path)),
+            loggable(filename),
         )
         _note_shadowed(path, existing_path)
         return True  # library correctly unchanged
@@ -4277,7 +4369,7 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
             and z.get("file") not in removed
         ]
         listing.append(entry)
-        _zim_list_cache = listing
+        _set_listing(listing)
         if replaced or left:
             # The file under a served name changed (replaced in place, or an
             # edition swapped out): drop every handle still on the old one.
@@ -4320,8 +4412,8 @@ def register_zim_file(path, removed_files=(), removed_paths=()):
         _interlang._domain_zim_map = merged
     log.info(
         "Registered %s (%s entries) without a library rescan",
-        filename,
-        entry.get("entries"),
+        loggable(filename),
+        loggable(entry.get("entries")),
     )
     return True
 
@@ -4364,9 +4456,9 @@ def _drop_registered(gone, dead_files):
             _zim_files_cache = {
                 n: p for n, p in _zim_files_cache.items() if n not in gone
             }
-            _zim_list_cache = [
-                z for z in (_zim_list_cache or []) if z.get("name") not in gone
-            ]
+            _set_listing(
+                [z for z in (_zim_list_cache or []) if z.get("name") not in gone]
+            )
             # Evict the pooled handles for the deleted files. Dropping them
             # from the dicts only stops FUTURE use: a search thread already
             # holding one keeps a valid mapping of an unlinked file until it
@@ -4477,8 +4569,8 @@ def unregister_zim_file(filename):
     _drop_registered(gone, dead_files)
     log.info(
         "Unregistered %s without a library rescan%s",
-        filename,
-        f" ({', '.join(sorted(gone))} left the library)" if gone else "",
+        loggable(filename),
+        loggable(f" ({', '.join(sorted(gone))} left the library)" if gone else ""),
     )
     return True
 

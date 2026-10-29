@@ -48,6 +48,7 @@ from collections import OrderedDict
 
 from zimi import epub as _epub
 from zimi import server as _srv
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -88,20 +89,28 @@ _LT_PREAMBLE_RE = re.compile(
 )
 # "Example \(\PageIndex{2}\)": the page's number before the example's
 # (mindtouch2zim's zimui defines the macro per page, from its title).
-_LT_PAGEINDEX_RE = re.compile(r"\\PageIndex\s*\{\s*([^{}]*?)\s*\}")
+_LT_PAGEINDEX_RE = re.compile(r"\\PageIndex\s*\{([^{}]*)\}")
 
 # ── math ──
 # Where a ZIM keeps the MathJax its own pages load (mindtouch2zim's zimui).
 MATHJAX_PATHS = ("mathjax/es5/tex-svg.js", "mathjax/es5/tex-mml-svg.js")
 MATH_CLASS = "zb-tex"
+# Longest formula and tag the patterns below look for. The bound keeps a run of
+# unclosed "\\(" or "<" in a page from costing a scan to the end each time.
+TEX_MAX_CHARS = 4000
+TAG_MAX_CHARS = 8192
 # A formula as MathJax finds one in text: \(..\) inline, \[..\] or $$..$$
 # on a line of its own. Never across a tag: a formula is one run of text.
 _TEX_RE = re.compile(
-    r"\\\((?:(?!\\\)).)+?\\\)|\\\[(?:(?!\\\]).)+?\\\]|\$\$(?:(?!\$\$).)+?\$\$", re.S
+    r"\\\((?:(?!\\\)).){1,%d}?\\\)|\\\[(?:(?!\\\]).){1,%d}?\\\]|\$\$(?:(?!\$\$).){1,%d}?\$\$"
+    % ((TEX_MAX_CHARS,) * 3),
+    re.S,
 )
 # A tag (never the "< b" of "a < b" in a formula), and the elements whose
 # text is not prose, where TeX is shown as written.
-_TAG_RE = re.compile(r"(<[a-z/!?][^>]*>)", re.I)
+# The closing ">" is optional so that a tag longer than the bound still matches (its first TAG_MAX_CHARS characters) and stays
+# opaque, rather than falling out as text that a formula in an attribute would be wrapped in.
+_TAG_RE = re.compile(r"(<[a-z/!?][^>]{0,%d}>?)" % TAG_MAX_CHARS, re.I)
 _TAG_NAME_RE = re.compile(r"<(/?)([a-z][a-z0-9]*)", re.I)
 _VERBATIM = frozenset(("pre", "code", "kbd", "samp", "textarea", "script", "style"))
 
@@ -194,7 +203,7 @@ def _lt_math(body, title):
     out of sight, \\PageIndex the page's number."""
     body = _LT_PREAMBLE_RE.sub(lambda m: m.group(1) + " hidden" + m.group(2), body)
     front = _lt_front(title)
-    return _LT_PAGEINDEX_RE.sub(lambda m: front + m.group(1), body)
+    return _LT_PAGEINDEX_RE.sub(lambda m: front + m.group(1).strip(), body)
 
 
 def math_src(archive):
@@ -435,7 +444,7 @@ def build(zim, archive, reader, root, meta):
         total += len(body)
         if total > MAX_BOOK_BYTES:
             log.warning(
-                "Book %s in %s: cut at chapter %d of %d", root, zim, i, len(chapters)
+                "Book %s in %s: cut at chapter %d of %d", loggable(root), loggable(zim), i, len(chapters)
             )
             break
         # The first page is the book's own (its title page, its contents):
@@ -522,7 +531,7 @@ def respond(zim, entry_path):
         with lock:
             page = build(zim, archive, reader, root, meta)
     except Exception as e:
-        log.warning("Book %s in %s could not be read: %s", root, zim, e)
+        log.warning("Book %s in %s could not be read: %s", loggable(root), loggable(zim), loggable(e))
         page = None
     if page is None:
         return None, None

@@ -95,6 +95,7 @@ from zimi.zimwriter import (
     zim_name,
     zim_static_item_class,
 )
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi.creator")
 
@@ -178,7 +179,7 @@ _HTML_MIME = "text/html"
 _TITLE_TAG_RE = re.compile(r"<title[^>]*>(.*?)</title\s*>", re.IGNORECASE | re.DOTALL)
 _H1_RE = re.compile(r"<h1[^>]*>(.*?)</h1\s*>", re.IGNORECASE | re.DOTALL)
 _TAG_RE = re.compile(r"<[^>]+>")
-_SCRIPT_RE = re.compile(r"<script\b[^>]*>.*?</script\s*>", re.IGNORECASE | re.DOTALL)
+_SCRIPT_RE = re.compile(r"<script\b[^>]*>.*?</script\b[^>]*>", re.IGNORECASE | re.DOTALL)
 _SCRIPT_VOID_RE = re.compile(r"<script\b[^>]*/\s*>", re.IGNORECASE)
 _NOSCRIPT_RE = re.compile(
     r"<noscript\b[^>]*>.*?</noscript\s*>", re.IGNORECASE | re.DOTALL
@@ -691,8 +692,9 @@ def _zim_file_item_class():
     from libzim.writer import FileProvider, Hint, Item
 
     class _FileItem(Item):
-        def __init__(self, path, title, fs_path, mimetype):
+        def __init__(self, path, title, fs_path, mimetype, front=True):
             super().__init__()
+            self._front = front
             self._path = path
             self._title = title
             self._fs_path = fs_path
@@ -713,8 +715,11 @@ def _zim_file_item_class():
         def get_hints(self):
             # PDFs are front articles — they're the content in a document
             # folder, and FRONT_ARTICLE puts them in the suggest index.
+            # (a licence or notice is served but is no article, in any format)
             return (
-                {Hint.FRONT_ARTICLE: 1} if self._mimetype == "application/pdf" else {}
+                {Hint.FRONT_ARTICLE: 1}
+                if self._mimetype == "application/pdf" and self._front
+                else {}
             )
 
     _file_item_cls = _FileItem
@@ -728,6 +733,25 @@ def _scan_folder(root):
     point outside the folder, and 'package this folder' must never read
     beyond it."""
     yield from _folderfiles.walk(root)
+
+
+# A licence file anywhere in a folder, or a README below its top: reachable (a page can link to it), never one of the
+# ZIM's articles. The folder's own README stays what it is, often the page a documents-only folder opens on.
+_NOTICE_FILE = re.compile(r"(licen[cs]e|copying|notice)([.-][a-z0-9-]+)?(\.(txt|md))?$", re.I)
+_NESTED_README = re.compile(r"readme([.-][a-z0-9-]+)?(\.(txt|md))?$", re.I)
+
+
+def _folder_tag_list(mimetypes, sidecar, explicit):
+    """A folder ZIM's tags: what the files show, then the explicit ones, then the sidecar's. Readers take the first
+    ``_category:``, so an explicit one beats the folder's own."""
+    return media_tags(mimetypes) + list(explicit or ()) + _folderfiles.tags_of(sidecar)
+
+
+def _is_notice_file(zim_path):
+    base = posixpath.basename(zim_path)
+    if base.lower().endswith((".html", ".htm", ".xhtml")):
+        return False  # a page is a page, whatever its name
+    return bool(_NOTICE_FILE.match(base) or ("/" in zim_path and _NESTED_README.match(base)))
 
 
 # Root-level entry-point candidates, best first. Extensionless README is
@@ -1343,7 +1367,9 @@ def _create_folder_zim(
                 else:
                     content, page_title = _render_markdown_page(text, fallback)
                     page_title = named or page_title
-                part_of_page = zim_path in owned
+                # A licence is served (a page can link to it) but is not an article: it would turn up in
+                # search and in a random pick.
+                part_of_page = zim_path in owned or _is_notice_file(zim_path)
                 creator.add_item(
                     static_cls(
                         zim_path,
@@ -1358,7 +1384,7 @@ def _create_folder_zim(
                     pages.append((zim_path, page_title, key[0] if key else ""))
             else:
                 mime = _saved.mime_for(zim_path, fs_path, use_hints)
-                creator.add_item(file_cls(zim_path, named or stem, fs_path, mime))
+                creator.add_item(file_cls(zim_path, named or stem, fs_path, mime, front=not _is_notice_file(zim_path)))
                 assets.append(zim_path)
                 mimetypes.add(mime)
             _folder_progress(progress, n, len(items), zim_path)
@@ -1435,9 +1461,7 @@ def _create_folder_zim(
             # Repackaging the same folder next month is a new EDITION of this
             # ZIM, so the Name comes from the folder, never from the date.
             name=zim_name(base_name, language),
-            tags=media_tags(mimetypes)
-            + _folderfiles.tags_of(meta.get("tags"))
-            + list(tags or ()),
+            tags=_folder_tag_list(mimetypes, meta.get("tags"), tags),
             illustration=_folder_icon(folder, meta),
             history=history_record(
                 "created",
@@ -2729,7 +2753,7 @@ def _fetch_icon_png(url, timeout):
         with _urlopen_retry(req, timeout) as resp:
             data = resp.read(MAX_FAVICON_BYTES + 1)
     except OSError as e:
-        log.debug("favicon fetch failed %s: %s", url, e)
+        log.debug("favicon fetch failed %s: %s", loggable(url), loggable(e))
         return None
     if data and len(data) <= MAX_FAVICON_BYTES:
         return illustration_from_image(data)
@@ -3807,7 +3831,7 @@ def _probe_icon_data_uri(final_url, timeout, page):
     try:
         png = site_illustration(final_url, min(timeout, PROBE_ICON_TIMEOUT), page=page)
     except Exception as e:
-        log.debug("probe could not fetch an icon for %s: %s", final_url, e)
+        log.debug("probe could not fetch an icon for %s: %s", loggable(final_url), loggable(e))
         return None
     if not png:
         return None

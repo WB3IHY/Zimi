@@ -47,6 +47,7 @@ from urllib.parse import unquote
 
 from zimi import datepages, frontpage
 from zimi import server as _srv
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -217,7 +218,7 @@ def _kept(cache, key, work):
     try:
         got = work()
     except Exception as e:
-        log.warning("Zimipedia could not read %s: %s", key, e)
+        log.warning("Zimipedia could not read %s: %s", loggable(key), loggable(e))
         got = None
     finally:
         with _lock:
@@ -399,7 +400,7 @@ def _quote(html, title):
 # Simple English Wiktionary's forms of another word ("The plural form of
 # script"), which English Wiktionary's own check does not catch.
 _INFLECTION_RE = re.compile(
-    r"^(?:\(.*?\)\s*)*(?:the |an? )?(?:plural|past tense|past participle|present participle|third-person|"
+    r"^(?:\([^()]*\)\s*)*(?:the |an? )?(?:plural|past tense|past participle|present participle|third-person|"
     r"comparative|superlative|simple past|alternative)\b",
     re.IGNORECASE,
 )

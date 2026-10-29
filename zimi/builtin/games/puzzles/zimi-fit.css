@@ -1,0 +1,87 @@
+/* ZimiGames: makes Simon Tatham's puzzle pages a ZimiGames page, without touching the puzzle code. Loaded by one
+   line in each page. The bar and the Menu come from ../shell.js (zimi-fit.js builds the bar's buttons); the puzzle's own
+   menu form stays in the page, hidden, because the frontend drives it. Selectors start with "html body" to win over
+   each page's own <style>. */
+@import url("../games.css");
+
+html body { display: flex; flex-direction: column; height: auto; min-height: 100%; background: var(--ground); color: var(--ink); font: var(--fs-body)/1.45 var(--font); }
+html body #puzzle { flex: 1 0 auto; width: 100%; max-width: var(--column); margin: 0 auto; padding: var(--sp-3) var(--gutter) max(var(--sp-5), env(safe-area-inset-bottom)); text-align: center; }
+/* Shown from the start so the fit box has a real size when the puzzle first measures it. */
+html body #puzzle { display: block !important; }
+html body #gamemenu, html body #resizehandle, html body #statusbar, html body #permalink-desc, html body #permalink-seed { display: none; }
+html body #apology { margin: var(--sp-5) var(--gutter); color: var(--ink2); }
+
+/* The puzzle sits in the shared frame (games.css .gs-frame: radius 14, a 1px line, surface2, 12px padding) and fits this box. */
+html body .pz-frame { max-width: 744px; margin: 0 auto; }
+html body #puzzlecanvascontain { width: 100%; height: min(calc(100svh - 232px), calc(100vw - 2 * var(--gutter) - 2 * var(--sp-3)), 720px); min-height: 240px; margin: 0 auto; }
+html body #resizable { margin: 0 auto; }
+html body #puzzlecanvas { display: block; width: 100%; background: transparent; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+html body #puzzlecanvas:focus, html body #puzzlecanvas:focus-visible { outline: none; }   /* the puzzle draws its own cursor */
+
+/* The status line: one sentence in the page's face, the shared status style. */
+html body .pz-status { min-height: var(--sp-5); margin-top: var(--sp-3); font-size: var(--fs-body); line-height: 24px; color: var(--ink); }
+html body .pz-status[hidden] { display: none; }
+
+/* Digits, for the puzzles that take them. Shown on touch, where there is no keyboard. */
+.zf-keys { display: none; gap: var(--sp-2); flex-wrap: wrap; justify-content: center; max-width: 460px; margin: var(--sp-3) auto 0; }
+.zf-touch .zf-keys { display: flex; }
+.zf-keys .ar-btn { min-height: var(--target); min-width: var(--target); padding: 0 var(--sp-3); font-weight: 600; }
+
+/* Menu > New game: the Type and the Game rows. */
+.pz-types, .pz-games { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.pz-opt-head { margin: var(--sp-2) 0 0; font-size: var(--fs-small); font-weight: 600; color: var(--ink2); }
+.pz-game-rows { display: grid; gap: var(--sp-2); }
+.pz-opt { width: 100%; justify-content: flex-start; text-align: start; min-height: var(--target); }
+/* The chosen type is selected, not the screen's one filled amber button (that is Start). */
+.pz-opt[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--accent); color: var(--ink); font-weight: 650; }
+
+/* The puzzle's own dialogs (game ID, preferences, a custom size). */
+html body #dlgdimmer { background: var(--scrim); opacity: 1; }
+html body #dlgform { width: min(92vw, 520px); left: 50%; transform: translateX(-50%); background: var(--surface2); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-sheet); box-shadow: var(--shadow-popup); font-size: var(--fs-body); text-align: start; }
+html body #dlgform h2 { font-size: var(--fs-sheet); }
+html body #dlgform input, html body #dlgform select, html body #dlgform button, html body #dlgform textarea { font: inherit; min-height: 36px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 2px var(--sp-2); }
+html body #dlgform input[type="checkbox"], html body #dlgform input[type="radio"] { min-height: 0; }
+html body #dlgform button, html body #dlgform input[type="button"] { cursor: pointer; margin-right: var(--sp-2); }
+@media (pointer: coarse) { html body #dlgform input, html body #dlgform select, html body #dlgform button { min-height: var(--target); } }
+
+/* Undo and Redo in the bar: arrows, no words (the name is in aria-label). */
+.zf-icon { min-width: var(--target); padding: 0 var(--sp-2); display: inline-flex; align-items: center; justify-content: center; }
+.zf-icon .zf-label { display: none; }
+.gs-extras .zf-icon { padding: 0 var(--sp-3); }
+.gs-extras .zf-icon svg { display: none; }
+.gs-extras .zf-icon .zf-label { display: inline; }
+.zf-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Mark (and Pencil) is a toggle: pressed is the amber state of every pressed button in the shared styles. */
+.zf-mark[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--accent); color: var(--ink); font-weight: 650; }
+
+/* The preferences form is read into Settings rows and never seen; the quiet class is on for the moment it is open. */
+.zf-quiet #dlgdimmer, .zf-quiet #dlgform { display: none !important; }
+/* A row whose choices are long or many stacks them, one per line. */
+.gs-seg.pz-stack { display: flex; flex-direction: column; flex: 1 1 100%; }
+.gs-seg.pz-stack .ar-btn { border-radius: 0; margin-left: 0; margin-top: -1px; text-align: start; justify-content: flex-start; }
+.gs-seg.pz-stack .ar-btn:first-child { border-radius: var(--radius) var(--radius) 0 0; margin-top: 0; }
+.gs-seg.pz-stack .ar-btn:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+
+/* New game: the Advanced fold (a game ID, a seed, a save file) is quiet until opened. */
+.pz-advanced { margin-top: var(--sp-3); }
+.pz-advanced > summary { cursor: pointer; list-style: none; min-height: var(--target); display: flex; align-items: center; }
+.pz-advanced > summary::-webkit-details-marker { display: none; }
+.pz-advanced > summary::after { content: "\203A"; margin-left: var(--sp-2); transition: transform 120ms; }
+.pz-advanced[open] > summary::after { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .pz-advanced > summary::after { transition: none; } }
+
+/* The puzzle's own dialog as a sheet: a label and its control on one line, Cancel and OK last. */
+html body #dlgform { padding: var(--sp-4); max-height: 86svh; overflow: auto; top: 8svh; }
+html body #dlgform h2 { margin: 0 0 var(--sp-3); }
+html body #dlgform br { display: none; }
+html body #dlgform label { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--target); font-weight: 600; color: var(--ink2); }
+html body #dlgform label input[type="text"], html body #dlgform label select { flex: 0 1 55%; min-width: 0; margin: 0; }
+html body #dlgform label input[type="checkbox"] { flex: 0 0 auto; width: 22px; height: 22px; order: 2; }
+html body #dlgform .pz-dlg-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-3); }
+html body #dlgform .pz-dlg-actions input { margin: 0; padding: 0 var(--sp-4); }
+html body #dlgform .pz-dlg-actions input[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 650; }
+html body #dlgform .pz-dlg-actions input:not([aria-pressed="true"]) { background: transparent; border-color: transparent; color: var(--ink2); }
+.gs-about a { color: var(--accent); }
+/* About: the facts and the credit are separate paragraphs. */
+.gs-about .gs-meta + .gs-text, .gs-about .gs-text + .gs-text { margin-top: var(--sp-3); }

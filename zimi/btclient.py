@@ -38,6 +38,7 @@ import urllib.parse
 import urllib.request
 
 from zimi.p2p import BTBackend
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi.btclient")
 
@@ -243,11 +244,6 @@ def to_remote(local, pairs):
 
 
 # ── the probe Settings runs ─────────────────────────────────────────────────
-
-
-def loggable(value):
-    """A value the admin typed (an address), safe on one log line."""
-    return str(value).replace("\r", "\\r").replace("\n", "\\n")
 
 
 def _reason(cfg, e):

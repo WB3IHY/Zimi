@@ -798,7 +798,7 @@ function _tbMdText(n) { return n ? String(n.textContent || '').replace(/\s+/g, '
 function _tbMdCell(n) {
   var s = _tbMdText(n);
   if (!s && n) s = [].map.call(n.querySelectorAll('[title]'), function (x) { return x.getAttribute('title'); }).join(' ');
-  return s.replace(/\|/g, '\\|');
+  return s.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 }
 // A table, its spans laid out on a grid: a heading cell over several columns
 // is repeated in each, two head rows join per column, and a month's heading

@@ -27,6 +27,7 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 import zimi.server as _srv
 from zimi import bestanswer as _bestanswer
 from zimi import bookpages as _bookpages
+from zimi import changes as _changes
 from zimi import manage as _manage_mod
 from zimi import netguard as _netguard
 from zimi import sso as _sso
@@ -37,6 +38,7 @@ from zimi.manage import (
     handle_manage_get,
     handle_manage_post,
 )
+from zimi.safety import header_value, join_inside, loggable
 
 log = logging.getLogger("zimi")
 
@@ -118,6 +120,46 @@ def _is_trusted_net(ip):
     return False
 
 
+# GET /events: a comment this often on a quiet stream (well inside proxies'
+# idle limits: Cloudflare closes at 100 s), a new stream this often, and the
+# browser's wait before opening it again after the server went away.
+_EVENTS_HEARTBEAT_S = 25
+_EVENTS_MAX_S = 15 * 60
+_EVENTS_RETRY_MS = 5000
+# Each open stream holds a thread and a socket for up to _EVENTS_MAX_S, so how
+# many may be open is capped: all together, and per client (the real client
+# address, _client_ip: a few windows of one person, not a few thousand of one
+# script; not for this machine or the local network reached directly, which the
+# rate limiter leaves unlimited too, and whose closed tabs hold a slot until the
+# next heartbeat notices). A full server answers 429 with Retry-After; the page waits that long
+# (app.js _LIVE_RETRY_MS) rather than asking again at once.
+_EVENTS_MAX_STREAMS = 256
+_EVENTS_MAX_PER_IP = 8
+_EVENTS_FULL_RETRY_S = 60
+_events_open = {}  # client ip -> streams open now
+_events_lock = threading.Lock()
+
+
+def _events_enter(ip, per_client=True):
+    """Count one more stream for ``ip``: False when the server already holds as
+    many as it may, or (``per_client``) that client does."""
+    with _events_lock:
+        if sum(_events_open.values()) >= _EVENTS_MAX_STREAMS or (
+            per_client and _events_open.get(ip, 0) >= _EVENTS_MAX_PER_IP
+        ):
+            return False
+        _events_open[ip] = _events_open.get(ip, 0) + 1
+        return True
+
+
+def _events_leave(ip):
+    with _events_lock:
+        left = _events_open.get(ip, 0) - 1
+        if left > 0:
+            _events_open[ip] = left
+        else:
+            _events_open.pop(ip, None)
+
 RATE_LIMIT = int(
     os.environ.get("ZIMI_RATE_LIMIT", "60")
 )  # API requests per minute per IP (0 = disabled)
@@ -142,6 +184,13 @@ RATE_LIMIT_TRUSTED = int(
 RATE_LIMIT_LOGIN = int(os.environ.get("ZIMI_RATE_LIMIT_LOGIN", "10"))
 _rate_buckets = {}  # {ip: [timestamps]} — API endpoints
 _rate_buckets_content = {}  # {ip: [timestamps]} — /w/ content
+# The offline keeper (sw.js keepOwnZim) pulls the games' and the Almanac's few hundred pages in the background, on
+# every deploy and every new device. On the page's own /w/ budget it ate the whole minute, and the page that was being
+# opened got `rate limited` for a script ("This game failed to start" on Loopy and Quizzical). Its requests, which
+# say so and ask only for Zimi's own ZIMs, count in a bucket of their own.
+KEEP_HEADER = "X-Zimi-Keep"
+_OWN_ZIM_PATH_PREFIX = "/w/zimi_"
+_rate_buckets_keep = {}  # {ip: [timestamps]}
 _rate_buckets_login = {}  # {ip: [timestamps]} — POST /login
 _rate_lock = threading.Lock()
 
@@ -155,6 +204,28 @@ _rate_lock = threading.Lock()
 # replaced archive corrects itself before anybody files a bug — the ETag
 # carries the ZIM file's size and mtime, so the correction is automatic.
 ZIM_CONTENT_MAX_AGE = 60
+_OWN_ZIM_NAMES = frozenset(o.name for o in __import__("zimi.ownzims", fromlist=["OWN"]).OWN)
+
+
+def own_zims_version():
+    """One token for Zimi's own ZIMs (the games, the Almanac), from the
+    stamp beside each built file (the hash of its source). A rebuilt own
+    ZIM is then a different worker, so the phone drops the copies of its
+    pages it kept and every open window reloads, as for a changed script:
+    they are code, and the page, its scripts and its strings must match."""
+    from zimi import ownzims
+
+    out = []
+    try:
+        for fn in sorted(os.listdir(ownzims.OUT_DIR)):
+            if fn.endswith(".zim.source"):
+                with open(os.path.join(ownzims.OUT_DIR, fn), encoding="ascii") as f:
+                    out.append(fn + f.read().strip())
+    except OSError:
+        pass
+    return hashlib.md5("".join(out).encode()).hexdigest()[:8]
+
+
 # A word said by the server: kept by the browser for a minute, so a second
 # tap is instant and a voice downloaded or removed is heard a minute later
 # at most (the server keeps its own cache).
@@ -247,6 +318,9 @@ _RATE_LIMITED_API_PATHS = (
     "/almanac-satellites",
     "/almanac-ages",
     "/almanac-place",
+    "/games-links",
+    "/own-offline",
+    "/events",
 )
 
 # The apps' routes below their bare path (/exchange/question, /reddot/post):
@@ -1136,10 +1210,12 @@ if os.path.isdir(_STATIC_DIR):
             + _static_hash("dictionary.html")
             + _static_hash("almanac-look.js")
             + _static_hash("almanac-skyfind.js")
+            + _static_hash("almanac-gamesky.js")
             + _static_hash("fieldguide.html")
             + _static_hash("fieldguide-card.js")
             + _static_hash("fieldguide-offline.js")
             + _keep_scripts_version()
+            + own_zims_version()
             + _static_hash("apps.css")
             + _static_hash("apps.js")
             # The PDF viewer and Zimi's reader inlined into it.
@@ -1224,6 +1300,11 @@ def _asset_version():
     service-worker cache key and is exposed at /health so the SW can detect a
     changed deploy and drop its stale cache."""
     return f"zimi-v{_srv.ZIMI_VERSION}-{_ASSET_BUNDLE_HASH}"
+
+
+# The build the page is, beside the build /events' ticks say this server
+# serves: a window open across a deploy hears a different one and updates.
+SEARCH_UI_HTML = SEARCH_UI_HTML.replace("build:''", "build:'%s'" % _asset_version())
 
 
 # ============================================================================
@@ -1559,6 +1640,7 @@ def _zimi_kind(meta):
     alive engine writes ``zimi:alive``. Neither leaves an X-Zimi-History, so the
     Scraper suffix Zimi appends is the whole signal that Zimi was involved —
     matched with its trailing space so the unrelated "zimit" scraper cannot."""
+    from zimi import ownzims as _ownzims
     from zimi import zimwriter as _zw
 
     history = _zw.parse_history(meta.get(_zw.HISTORY_METADATA_KEY, ""))
@@ -1567,7 +1649,8 @@ def _zimi_kind(meta):
     alive = _ALIVE_TAG in tags
     converted = _ALIVE_SCRAPER_MARKER in scraper.lower()
     made_by_zimi = bool(history) or alive or "Zimi " in scraper
-    if not made_by_zimi:
+    # Zimi's own ZIMs (ZimiGames, the Almanac) ship with Zimi; nobody here made them.
+    if not made_by_zimi or _ownzims.OWN_TAG in tags:
         return None
     created = _creation_record(history)
     kind = {
@@ -1604,7 +1687,7 @@ def _zim_metadata_for(name):
         try:
             return _read_zim_metadata(archive), True
         except Exception as e:
-            log.debug("metadata unreadable for %s: %s", name, e)
+            log.debug("metadata unreadable for %s: %s", loggable(name), loggable(e))
             return {}, False
 
 
@@ -2058,7 +2141,7 @@ def _mirrors_web_urls(zim_name, archive):
         try:
             answer = bool(archive.has_entry_by_path(_REPLAY_SHELL_ENTRY))
         except Exception as e:
-            log.debug("could not probe %s for a replay shell: %s", zim_name, e)
+            log.debug("could not probe %s for a replay shell: %s", loggable(zim_name), loggable(e))
     with _mirrors_urls_lock:
         _mirrors_urls_cache[zim_name] = (generation, answer)
     return answer
@@ -2285,7 +2368,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         except _DISCONNECT_ERRS:
             # The connection is unusable; make the keep-alive loop stop.
             self.close_connection = True
-            log.debug("client disconnected: %s", getattr(self, "path", "?"))
+            log.debug("client disconnected: %s", loggable(getattr(self, "path", "?")))
         finally:
             _srv.clear_request_allow()
 
@@ -2295,7 +2378,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         just raise again. Real failures keep the traceback + generic 500."""
         if isinstance(e, _DISCONNECT_ERRS):
             log.debug(
-                "client disconnected mid-response: %s %s", self.command, self.path
+                "client disconnected mid-response: %s %s", loggable(self.command), loggable(self.path)
             )
             return
         traceback.print_exc()
@@ -2305,8 +2388,8 @@ class ZimHandler(BaseHTTPRequestHandler):
             # Client vanished between the failure and the error reply.
             log.debug(
                 "client disconnected before error reply: %s %s",
-                self.command,
-                self.path,
+                loggable(self.command),
+                loggable(self.path),
             )
 
     def do_HEAD(self):
@@ -2505,7 +2588,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         )
         if alias and alias[0] == "redirect":
             self.send_response(302)
-            self.send_header("Location", alias[1])
+            self.send_header("Location", header_value(alias[1]))
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
@@ -2541,8 +2624,16 @@ class ZimHandler(BaseHTTPRequestHandler):
         limited, is_w_content = _rate_class(parsed.path)
         if limited:
             limit = None if is_w_content else self._rate_limit_for_request()
+            keeping = (
+                is_w_content
+                and parsed.path.startswith(_OWN_ZIM_PATH_PREFIX)
+                and self.headers.get(KEEP_HEADER) == "1"
+            )
             retry_after = _check_rate_limit(
-                self._client_ip(), content=is_w_content, limit=limit
+                self._client_ip(),
+                content=is_w_content,
+                limit=limit,
+                buckets=_rate_buckets_keep if keeping else None,
             )
             if retry_after > 0:
                 with _metrics_lock:
@@ -2657,11 +2748,11 @@ class ZimHandler(BaseHTTPRequestHandler):
                     _record_metric("/search", dt)
                     if not hit:
                         log.info(
-                            "search q=%r limit=%d zim=%s fast=%s %.1fs",
-                            q,
+                            "search q=%s limit=%d zim=%s fast=%s %.1fs",
+                            loggable(repr(q)),
                             limit,
-                            zim_label,
-                            fast_pass,
+                            loggable(zim_label),
+                            loggable(fast_pass),
                             dt,
                         )
                     return result
@@ -2819,6 +2910,23 @@ class ZimHandler(BaseHTTPRequestHandler):
                 return _almanac_pdf_get(self, parsed.path)
             elif parsed.path == "/almanac-ages":
                 return self._json(200, _almanac_ages())
+            elif parsed.path == "/own-offline":
+                # What the phone keeps of one of Zimi's own ZIMs (the games)
+                # so it opens with no signal: ownzims.offline_paths. Asked
+                # by the worker once the ZIM has been opened, never by Home.
+                from zimi import ownzims
+
+                zim = param("zim") or ""
+                return self._json(
+                    200,
+                    {"paths": ownzims.offline_paths(zim), "version": ownzims.offline_version(zim)},
+                )
+            elif parsed.path == "/games-links":
+                # ZimiGames <-> encyclopedia: which installed article carries
+                # each game's Q-ID (zimi/gamelinks.py). Asked once, lazily.
+                from zimi import gamelinks
+
+                return self._json(200, gamelinks.links())
             elif parsed.path == "/almanac-place":
                 # Tide stations for the Almanac (zimi/placedata.py):
                 # the nearest to ?lat=&lon=, or those named like ?q=. Only
@@ -2896,6 +3004,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                 return self._uncached(self._handle_userdata_get)
             elif parsed.path == "/userdata/settings":
                 return self._uncached(self._handle_settings_get)
+            elif parsed.path == "/events":
+                return self._handle_events()
 
             elif parsed.path == "/languages":
                 # Installed language summary with native names and ZIM counts
@@ -2929,8 +3039,8 @@ class ZimHandler(BaseHTTPRequestHandler):
                     result = _srv.get_article_languages(zim, path)
                     log.info(
                         "article-languages %s/%s: %d results",
-                        zim,
-                        path,
+                        loggable(zim),
+                        loggable(path),
                         len(result.get("languages", [])),
                     )
                 return self._json(200, result)
@@ -3203,6 +3313,29 @@ class ZimHandler(BaseHTTPRequestHandler):
                 if sub == "random":
                     langs = [x for x in (param("langs") or "").split(",") if x][:8]
                     return self._json(200, _dict.random_words(langs))
+                if sub == "five":
+                    # ZimiGames' Five Letters: a five-letter word of a
+                    # Wiktionary for the day, or whether a guess is one.
+                    name = param("zim") or ""
+                    if param("define"):
+                        got = _dict.define_five_letter_word(name, param("define"))
+                        if got is None:
+                            return self._json(404, {"error": "not found"})
+                        return self._json(200, got)
+                    if param("check"):
+                        ok = _dict.is_five_letter_word(name, param("check"))
+                        if ok is None:
+                            return self._json(404, {"error": "not found"})
+                        return self._json(200, {"ok": ok})
+                    from zimi import wiki as _wiki
+
+                    day = param("day") or ""
+                    if day != "chance" and not _wiki.day_open(day):
+                        return self._json(400, {"error": "day not open"})
+                    got = _dict.five_letters(name, day)
+                    if got is None:
+                        return self._json(404, {"error": "not found"})
+                    return self._json(200, got)
                 if sub in ("voices", "speak"):
                     return self._dictionary_voice(sub, param)
                 if sub == "sample":
@@ -3329,6 +3462,20 @@ class ZimHandler(BaseHTTPRequestHandler):
                     # The day's card from a wiki is Zimipedia's pick for
                     # that day, worked out once and kept (wiki.daily_card):
                     # the home page and Today show one word of the day.
+                    if zim == "zimi_games":
+                        # Zimi's own games: the game of the day, the one the
+                        # shelf shows (gamelinks.game_of_day); without a day,
+                        # a game from the shelf, never one of the ZIM's pages
+                        # that is not a game (about, a stylesheet, a script).
+                        from zimi import gamelinks
+
+                        card = (
+                            gamelinks.day_card(param("day"))
+                            if param("day")
+                            else gamelinks.random_card(param("not"), served=True)
+                        )
+                        # Never an entry that is not a game: no card is an error, not a draw from the whole ZIM.
+                        return self._json(200, card) if card else self._json(404, {"error": "no games"})
                     if param("day"):
                         from zimi import wiki as _wiki
 
@@ -3488,7 +3635,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                         chosen["date"] = xkcd_date
                 _record_metric("/random", dt)
                 log.info(
-                    "random zim=%s title=%r %.1fs", pick_name, best_result["title"], dt
+                    "random zim=%s title=%s %.1fs", loggable(pick_name), loggable(repr(best_result["title"])), dt
                 )
                 return self._json(200, chosen)
 
@@ -3901,7 +4048,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         sig = _srv.zim_signature(zim_name)
         if not sig:
             return ""
-        return '"%s-%s-%s"' % (entry_path.rsplit("/", 1)[-1], int(sig[0]), sig[1])
+        return header_value('"%s-%s-%s"' % (entry_path.rsplit("/", 1)[-1], int(sig[0]), sig[1]))
 
     def _picture_not_modified(self, etag):
         self.send_response(304)
@@ -3980,7 +4127,7 @@ class ZimHandler(BaseHTTPRequestHandler):
             except Exception:
                 continue
         if not icon_data:
-            log.debug("no 48x48 illustration in %s", zim_name)
+            log.debug("no 48x48 illustration in %s", loggable(zim_name))
             # And a MISS is never remembered. A ZIM that gains an illustration
             # — rebuilt, replaced, re-captured — must not stay iconless in the
             # one browser that happened to ask a moment too early.
@@ -4019,7 +4166,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         value = 'attachment; filename="%s"' % ascii_name
         if filename != ascii_name:
             value += "; filename*=UTF-8''%s" % quote(filename, safe="")
-        return value
+        return header_value(value)
 
     @staticmethod
     def _w_location(zim_name, entry_path, fragment=""):
@@ -4032,7 +4179,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         location = "/w/%s/%s" % (_srv.url_quote(zim_name), quote(entry_path, safe="/"))
         if fragment:
             location += "#" + quote(fragment, safe="")
-        return location
+        return header_value(location)
 
     def _wants_html_document(self):
         """Whether THIS request is a page being opened, rather than a
@@ -4267,7 +4414,7 @@ class ZimHandler(BaseHTTPRequestHandler):
                     if self.path.find("?") >= 0:
                         moved += self.path[self.path.find("?") :]
                     self.send_response(301)
-                    self.send_header("Location", moved)
+                    self.send_header("Location", header_value(moved))
                     self.send_header("Content-Length", "0")
                     self.end_headers()
                     return
@@ -4585,7 +4732,14 @@ class ZimHandler(BaseHTTPRequestHandler):
         # invalidates every entry the moment the window closes — the exposure
         # is "up to a minute of stale", which is shorter than the afternoon
         # that caused this rule and shorter than a person's patience for Back.
-        self.send_header("Cache-Control", f"private, max-age={ZIM_CONTENT_MAX_AGE}")
+        # Zimi's own ZIMs are code (a page, its scripts and its strings are one
+        # version): always asked, answered with a cheap 304 while they are the
+        # same file, never reused for a minute (or, behind a CDN that rewrites
+        # max-age, for hours) across a deploy.
+        own = zim_name in _OWN_ZIM_NAMES
+        self.send_header(
+            "Cache-Control", "private, no-cache" if own else f"private, max-age={ZIM_CONTENT_MAX_AGE}"
+        )
         self.send_header("Vary", "Sec-Fetch-Dest")
         self.send_header("ETag", etag)
 
@@ -4910,7 +5064,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             return
         except OSError as e:
-            log.warning("peer file stream failed for %s: %s", name, e)
+            log.warning("peer file stream failed for %s: %s", loggable(name), loggable(e))
 
     def _dictionary_voice(self, sub, param):
         """The Dictionary's Say (voices.py). /dictionary/voices: what the
@@ -5139,7 +5293,9 @@ class ZimHandler(BaseHTTPRequestHandler):
             base = ZimHandler._static_base_dir()
             if not base:
                 return self._json(404, {"error": "static directory not found"})
-            probe_path = os.path.normpath(os.path.join(base, rel_path))
+            probe_path = join_inside(base, rel_path)
+            if probe_path is None:
+                return self._json(403, {"error": "forbidden"})
             try:
                 current_mtime = os.stat(probe_path).st_mtime
             except OSError:
@@ -5155,11 +5311,6 @@ class ZimHandler(BaseHTTPRequestHandler):
                 body, content_type = cached[0], cached[1]
             else:
                 file_path = probe_path
-                # Ensure resolved path is still inside the static dir
-                if not file_path.startswith(
-                    os.path.normpath(base) + os.sep
-                ) and file_path != os.path.normpath(base):
-                    return self._json(403, {"error": "forbidden"})
                 if not os.path.isfile(file_path):
                     return self._json(404, {"error": "not found"})
                 ext = os.path.splitext(file_path)[1].lower()
@@ -5549,13 +5700,13 @@ class ZimHandler(BaseHTTPRequestHandler):
             # _check_manage_auth accepts, so hand it back as role=admin so the
             # client uses it as the manage Bearer token (never hides the gear).
             if _users.is_admin_user(name):
-                log.info("Secondary-admin login: %s", name)
+                log.info("Secondary-admin login: %s", loggable(name))
                 return self._json_cookie(
                     200,
                     {"role": "admin", "name": name, "token": token, "secondary": True},
                     self._session_cookie(token, remember),
                 )
-            log.info("User login: %s", name)
+            log.info("User login: %s", loggable(name))
             return self._json_cookie(
                 200,
                 {
@@ -5700,11 +5851,14 @@ class ZimHandler(BaseHTTPRequestHandler):
             return None, (409, {"error": "account_changed"})
         return name, None
 
-    def _query_account(self):
+    def _query_param(self, key):
         from urllib.parse import parse_qs, urlparse
 
-        got = parse_qs(urlparse(self.path).query).get("account")
+        got = parse_qs(urlparse(self.path).query).get(key)
         return got[0] if got else None
+
+    def _query_account(self):
+        return self._query_param("account")
 
     def _handle_userdata_get(self):
         """GET /userdata — the signed-in user's own server-stored My-data blob
@@ -5729,7 +5883,7 @@ class ZimHandler(BaseHTTPRequestHandler):
         name, refused = self._data_owner(data.pop("account", None))
         if refused:
             return self._json(*refused)
-        ok, err, doc = _users.sync_user_data(name, data)
+        ok, err, doc = _users.sync_user_data(name, data, by=data.pop("client", None))
         if not ok:
             # Too large is the account's to fix (the device says sync is paused).
             # A file that could not be read is the server's, and passes.
@@ -5759,11 +5913,81 @@ class ZimHandler(BaseHTTPRequestHandler):
         if refused:
             return self._json(*refused)
         ok, err, doc = _users.change_settings(
-            name, data.get("changes") or {}, fill_only=bool(data.get("fill"))
+            name,
+            data.get("changes") or {},
+            fill_only=bool(data.get("fill")),
+            by=data.get("client"),
         )
         if not ok:
             return self._json(503 if err == "write failed" else 400, {"error": err})
         return self._json(200, doc)
+
+    def _handle_events(self):
+        """GET /events — what an open window should hear as server-sent
+        events, one ``change`` event ({"topic", "by"}) per change, for as long
+        as the window keeps it open (changes.py): every window hears the
+        library change, a signed-in one its account's changes too (sent with
+        ``account``, which must be the one signed in). A ``tick`` every
+        _EVENTS_HEARTBEAT_S keeps proxies from closing a quiet stream and
+        finds a window that went away; each says which build of the page this
+        server serves (``build``), so a window still on an older one, after a
+        deploy, knows to update. The stream ends after _EVENTS_MAX_S and the
+        browser opens a new one (``retry``), so no thread waits forever on a
+        client that vanished without a word. A private library refuses an
+        anonymous window before it gets here (_private_access_block)."""
+        account = self._query_account()
+        if account is None:
+            name = _users.request_data_owner(self)
+        else:
+            name, refused = self._data_owner(account)
+            if refused:
+                return self._json(*refused)
+        ip = self._client_ip()
+        if not _events_enter(ip, per_client=RATE_LIMIT_EXPLICIT or not self._is_direct_private_client()):
+            with _metrics_lock:
+                _metrics["rate_limited"] += 1
+            return self._json(
+                429,
+                {"error": "too many open streams", "retry_after": _EVENTS_FULL_RETRY_S},
+                retry_after=_EVENTS_FULL_RETRY_S,
+            )
+        try:
+            self._stream_events(name)
+        finally:
+            _events_leave(ip)
+
+    def _stream_events(self, name):
+        """The stream itself, for the account ``name`` (the caller counts it)."""
+        after = _changes.resume_from(
+            self._query_param("since") or self.headers.get("Last-Event-ID")
+        )
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, no-transform")
+        self.send_header("X-Accel-Buffering", "no")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.close_connection = True
+        # Every write carries the stream's place (``id``), which the window
+        # keeps and sends back on reopening; a ``tick`` says only that.
+        tick = json.dumps({"build": _asset_version()}).encode()
+        place = _changes.place(max(after, 0)).encode()
+        self.wfile.write(
+            b"retry: %d\nid: %s\nevent: tick\ndata: %s\n\n" % (_EVENTS_RETRY_MS, place, tick)
+        )
+        self.wfile.flush()
+        ends = time.monotonic() + _EVENTS_MAX_S
+        while time.monotonic() < ends:
+            after, got = _changes.wait_marked(after, name, _EVENTS_HEARTBEAT_S)
+            place = _changes.place(after).encode()
+            # Each change carries its own place, so a drop after one resumes just after it.
+            out = b"".join(
+                b"id: %s\nevent: change\ndata: %s\n\n"
+                % (_changes.place(seq).encode(), json.dumps(c, separators=(",", ":")).encode())
+                for seq, c in got
+            )
+            self.wfile.write(out or b"id: %s\nevent: tick\ndata: %s\n\n" % (place, tick))
+            self.wfile.flush()
 
     def log_message(self, format, *args):
         # Light logging: errors + slow requests. Suppress 200/304 noise.

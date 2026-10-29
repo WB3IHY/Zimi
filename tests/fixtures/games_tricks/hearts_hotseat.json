@@ -1,0 +1,81 @@
+{
+ "checks": [
+  {
+   "chips": "Ava0Bo0Rani0Moss0",
+   "cover": "Pass toAvaPass the device. Your cards stay hidden until you tap.I'm Ava, show my cards",
+   "label": "dealt behind a handoff",
+   "moves": 0,
+   "phase": "pass",
+   "scores": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "sheet": "",
+   "state": "b5ff8e35",
+   "status": "Ava: Choose 3 cards to pass left",
+   "watch": "",
+   "watchCtl": ""
+  },
+  {
+   "chips": "Bo0Rani0Moss0Ava0",
+   "cover": "Pass toAvaPass the device. Your cards stay hidden until you tap.I'm Ava, show my cards",
+   "label": "pass picked",
+   "moves": 3,
+   "phase": "play",
+   "scores": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "sheet": "",
+   "state": "45bf90fd",
+   "status": "Hearts not broken \u00b7 Ava, your turn",
+   "watch": "",
+   "watchCtl": ""
+  },
+  {
+   "chips": "Ava21Bo5Rani0Moss0",
+   "cover": "Pass toAvaPass the device. Your cards stay hidden until you tap.I'm Ava, show my cards",
+   "label": "a hand played",
+   "moves": 0,
+   "phase": "pass",
+   "scores": [
+    21,
+    5,
+    0,
+    0
+   ],
+   "sheet": "",
+   "state": "ff10651b",
+   "status": "Ava: Choose 3 cards to pass right",
+   "watch": "",
+   "watchCtl": ""
+  },
+  {
+   "chips": "Ava62Bo119Rani103Moss99",
+   "cover": "",
+   "label": "game over",
+   "moves": 53,
+   "phase": "over",
+   "scores": [
+    62,
+    119,
+    103,
+    99
+   ],
+   "sheet": "",
+   "state": "94338bb5",
+   "status": "Game over",
+   "watch": "",
+   "watchCtl": ""
+  }
+ ],
+ "events": 244,
+ "hseed": 11,
+ "plays": "2:1 3:4 0:2 1:0 1:42 2:41 3:43 0:51 0:20 1:13 2:23 3:24 1:25 2:22 3:37 0:21 1:48 2:46 3:45 0:50 0:6 1:5 2:7 3:12 3:8 0:3 1:40 2:10 2:16 3:36 0:19 1:14 0:30 1:32 2:31 3:29 1:44 2:34 3:35 0:39 0:26 1:49 2:27 3:33 0:28 1:47 2:18 3:11 0:38 1:15 2:17 3:9 2:1 3:3 0:8 1:10 1:50 2:48 3:47 0:41 1:25 2:23 3:17 0:24 1:0 2:11 3:6 0:4 1:2 2:5 3:36 0:12 0:42 1:51 2:43 3:46 1:18 2:16 3:35 0:20 0:30 1:31 2:28 3:29 1:37 2:38 3:34 0:32 2:14 3:27 0:15 1:21 1:26 2:13 3:39 0:45 1:9 2:22 3:44 0:7 1:33 2:19 3:40 0:49",
+ "seed": 17,
+ "trace": "cb7d1cecb596084787e1ff11bfb808a61581d88b520be5d5757717e54ea924766cf7401c8195868075cfc4bffa7285143197e1e730eccb311de28dd007b70b07f34f6cdd7b62aeddeef60c5512d648fecded6620f3e030d83931ddeddad8d04cad7daab3b4b9976cfa45332a83641edfc93d9ae23c6922243a80a92001a2262fe18d32427c3e7774a6972e9b7e2bb69ae6913f7c71a300bc5491ed6d3cf6e90f6f3a224f942d0701d245adab3a897caaf5d216c3349634fdb31a8de7f446fde87862ed8f6a6045de1db426b5ece7e6db032544c68fc6a915821d486f6f51c78b3f655f0af5af5eb52b860e8d25eb87aa9516269cc786ebaf79d61a34784d190940426928a7a58729a59f8f0f8d6e8ae9597567a722f04792ae0ef74a8fc064c052d16604ab9db9a6601832532195faf6693245bc5a942ce3b310efae6777e2d587822a46b7e003165f2365485340a0077d96ad93d63ded7d04a8f2a3c333ab0519c0235255fdf130083f83bbdf1090dd218ed8f90b67e65f1ac6c216071ba98137ebd3a8a5b08a31dc9ac89464b4ba0631946a771fd756b7643ea6c6127ce7548b3b70387dd214da4e427f18e96c05aca4c8697515163dd6dd6950f59c364a8c54383a5c306c308aa87ee51a46c4bb64e2c8f274c610c5ddf0a09c92b36eb4ee7b5cbe79e8eaa88006c28c0696501ba851f1e2543ea791e9eb266bb34bf3e8bfaabf9fea46661b0b46f66c9f12dfd2b0ddbc854f7f6a92472f6fce66dc6099df92587b6c3462f0a7ae2af862b55337dc4a7b51e86098fbfee779d148509a57e10422c723ca957866f33ef2e373dbcebac5d08649179739c3775f6d53f51aaa9506d9104cab62cd7a0d75c9ac54313ddd07ac8d1cbf8ff40743ed2da65923cf8cd4414fcc0103be1f5117c2da2d9e7cc25e7b899f8286cd4651d6028d51140d6be792e907e8b255a53b253f549c54f347bc22336f66809706a9f7d33fa55ad262f036a8e9482a6a611708b995d275c8601e77043d62f7504bbe678820a6d7460e2271ae58d5164589ddbaad0d6d5cc8b3d61d2cdd3db83029f4e0afb743805359090224f427cf6a02aa7a54b860b83a92dce0318a7057a993d499bcb6f04c7b79feaa87b80b3ed73a40302c49f0fa6db4bece0480662bdaac9a100ad6a9aa0b88bc7ad560b908d35408687e24284010fcf8bf60b6faf105226a2d132ae97f7f992d5c6691c8626e8b1319e3c64867b68a10b676dbbd44ee977a41509714f6ec350dd4cc8fa30357c22c5828071fed6a19c1100d71f0982cb1e83975ad44ce2461c9be05ad4e2909bcde9b82d336304e9481be30e8342d527c7bfb04630cf6f34c5427b985dd707104b4ac6fcbd04998c1"
+}

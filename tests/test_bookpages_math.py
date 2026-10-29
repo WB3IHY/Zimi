@@ -192,6 +192,10 @@ def test_marking_leaves_tags_and_verbatim_text_alone():
         '<code>$$c$$</code><br/><span class="zb-tex">\\[d\\]</span>'
     )
     assert bookpages.mark_tex("<p>plain</p>") == ("<p>plain</p>", 0)
+    # a tag longer than the scan bound stays opaque: a formula in its attribute is not wrapped
+    long_tag = '<p data-x="\\(no\\)' + "x" * (bookpages.TAG_MAX_CHARS + 50) + '">'
+    got, n = bookpages.mark_tex(long_tag + "\\(y\\)</p>")
+    assert n == 1 and got.startswith(long_tag.replace(chr(0), "")[:200]) and got.count("zb-tex") == 1
     assert (
         bookpages._lt_front("1.02: Sets") == "1.2."
         and bookpages._lt_front("Home") == ""

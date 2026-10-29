@@ -59,6 +59,7 @@ import threading
 from zimi import nautilus
 from zimi import server as _srv
 from zimi.details import DetailsBuilder
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -87,7 +88,7 @@ def _present_path(archive, path):
     try:
         item = _srv.entry_item(archive, path)
     except Exception as e:
-        log.debug("tube: %s unreadable: %s", path, e)
+        log.debug("tube: %s unreadable: %s", loggable(path), loggable(e))
         return ""
     return item.path if item is not None and item.size > 0 else ""
 

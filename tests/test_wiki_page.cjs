@@ -16,6 +16,7 @@ const vm = require('vm');
 const root = path.join(__dirname, '..', 'zimi', 'static');
 const page = fs.readFileSync(path.join(root, 'wiki.html'), 'utf8').replace(/\r\n/g, '\n');
 const src = fs.readFileSync(path.join(root, 'app.js'), 'utf8').replace(/\r\n/g, '\n');
+const appsJs = fs.readFileSync(path.join(root, 'apps.js'), 'utf8').replace(/\r\n/g, '\n');
 const reader = fs.readFileSync(path.join(root, 'wiki-reader.js'), 'utf8').replace(/\r\n/g, '\n');
 let failures = 0;
 function ok(label, cond, detail) {
@@ -55,7 +56,7 @@ vm.runInContext([
   extract(page, /function heading\(q\) \{[^\n]*\n/, 'heading'),
   "function esc(x) { return String(x).replace(/</g, '&lt;'); }",
   extract(page, /function mergeResults\(first, second\) \{[\s\S]*?\n\}/, 'mergeResults'),
-  extract(page, /function stripTags\(s\) \{[^\n]*\n/, 'stripTags'),
+  extract(appsJs, /function stripTags\(s\) \{[^\n]*\n/, 'stripTags'),
   extract(page, /function cleanBlurb\(s\) \{[\s\S]*?\n\}/, 'cleanBlurb'),
 ].join('\n'), ctx);
 

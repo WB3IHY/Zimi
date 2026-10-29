@@ -501,3 +501,23 @@ def test_saved_web_pages_link_to_each_other_not_to_the_web(tmp_path):
     assert "?x=1" in bowline, "another query is another page: left alone"
     # Assets are untouched.
     assert 'src="Bowline_files/a.png"' in bowline
+
+
+def test_a_pdf_notice_is_not_a_front_article():
+    """A licence or notice is served for a page to link to, but it is not an article: not in the suggest index or a random pick."""
+    from libzim.writer import Hint
+
+    from zimi import creator
+
+    item = creator._zim_file_item_class()
+    assert item("doc/a.pdf", "A", "/x", "application/pdf").get_hints() == {Hint.FRONT_ARTICLE: 1}
+    assert item("NOTICE.pdf", "N", "/x", "application/pdf", front=False).get_hints() == {}
+    assert creator._is_notice_file("NOTICE.pdf") and not creator._is_notice_file("doc/a.pdf")
+
+
+def test_an_explicit_category_beats_the_folders_own():
+    from zimi import creator, zimwriter
+
+    tags = creator._folder_tag_list(set(), "_category:wikipedia", ["_category:other"])
+    assert zimwriter.tags_string(tags).count("_category:") == 1
+    assert "_category:other" in zimwriter.tags_string(tags).split(";")

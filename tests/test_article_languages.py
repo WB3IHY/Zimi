@@ -966,6 +966,41 @@ class TestAPIResponse:
         assert "error" in data
 
 
+def _inventory_problem():
+    """Why the server cannot be judged by this file ("" when it answers and holds every ZIM this file names).
+
+    The file is written against the NAS's Wikipedia set. No server, or a stray
+    local one with other ZIMs, is a machine this suite cannot judge.
+    """
+    try:
+        if USE_SSH:
+            base = _HOST_MAP["nas"]
+            out = subprocess.check_output(
+                f"ssh {SSH_ALIAS} \"curl -s -m 5 '{base}/list'\"", shell=True, timeout=20
+            ).decode()
+            data = json.loads(out)
+        else:
+            base = _HOST_MAP.get(TEST_HOST, f"http://{TEST_HOST}")
+            with urllib.request.urlopen(f"{base}/list", timeout=5) as resp:
+                data = json.loads(resp.read())
+    except Exception as e:
+        return "the test host does not answer /list: %s" % e
+    items = data if isinstance(data, list) else data.get("zims", []) if isinstance(data, dict) else []
+    names = {z.get("name") for z in items if isinstance(z, dict)}
+    missing = sorted(set(ZIMS.values()) - names)
+    return "the test host lacks %s" % ", ".join(missing) if missing else ""
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _needs_the_nas_inventory():
+    problem = _inventory_problem()
+    if not problem:
+        return
+    if "TEST_HOST" in os.environ:
+        pytest.fail("TEST_HOST names a server and it cannot be tested: " + problem)   # asked for by name: say what is wrong
+    pytest.skip("no server at the test host with the Wikipedia ZIM inventory this file is written against (%s)" % problem)
+
+
 # ---------------------------------------------------------------------------
 # Summary fixture
 # ---------------------------------------------------------------------------

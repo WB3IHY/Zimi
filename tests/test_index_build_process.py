@@ -113,3 +113,36 @@ class IsolatedBuildTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_closing_a_pooled_connection_waits_for_the_query_using_it():
+    """An index replaced while a Q-ID lookup is running must not be closed under the lookup (a crash, no traceback)."""
+    import threading
+    import time
+
+    from zimi import search as _search
+
+    pool, lock, closed = {"z": object()}, threading.Lock(), []
+
+    class Conn:
+        def close(self):
+            closed.append(time.monotonic())
+
+    pool["z"] = Conn()
+    began = time.monotonic()
+    with _search.pooled_db_use(pool, "z"):
+        closer = threading.Thread(target=_search._close_pooled_db, args=("z", pool, lock))
+        closer.start()
+        time.sleep(0.2)
+        assert not closed, "closed while a query held the connection"
+    closer.join(5)
+    assert closed and closed[0] - began >= 0.2
+
+
+def test_a_qid_index_built_by_a_child_tells_the_games_links(monkeypatch):
+    from zimi import interlang as _interlang
+
+    told = []
+    monkeypatch.setattr(_interlang, "_games_note_index_change", lambda qid=None: told.append(qid))
+    _interlang._qid_index_built_elsewhere("fixture")
+    assert told == [None]

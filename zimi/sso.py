@@ -61,6 +61,7 @@ import urllib.error
 import urllib.request
 
 import zimi.server as _srv
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -657,9 +658,9 @@ def account_for(identity):
             if ok:
                 log.info(
                     "SSO: created account %s for %s (role=%s)",
-                    name,
-                    identity["email"],
-                    default_role(),
+                    loggable(name),
+                    loggable(identity["email"]),
+                    loggable(default_role()),
                 )
                 return name, None
             # Lost a race to a concurrent request for the same identity: the
@@ -672,8 +673,8 @@ def account_for(identity):
             return None, "create-failed"
     log.warning(
         "SSO: refusing %s — the account name(s) %s already belong to someone else",
-        identity["email"],
-        ", ".join(candidates),
+        loggable(identity["email"]),
+        loggable(", ".join(candidates)),
     )
     return None, "name-conflict"
 
@@ -729,12 +730,12 @@ def _log_reject(handler, reason):
     with _lock:
         last = _reject_logged.get(key, 0)
         if now - last < _REJECT_LOG_INTERVAL_S:
-            log.debug("SSO: rejected token from %s (%s)", peer, reason)
+            log.debug("SSO: rejected token from %s (%s)", loggable(peer), loggable(reason))
             return
         _reject_logged[key] = now
         if len(_reject_logged) > 256:
             _reject_logged.clear()
-    log.warning("SSO: rejected %s from %s (%s)", SSO_HEADER, peer, reason)
+    log.warning("SSO: rejected %s from %s (%s)", loggable(SSO_HEADER), loggable(peer), loggable(reason))
 
 
 def _cache_key(token, issuer, aud):

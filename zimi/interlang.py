@@ -27,7 +27,9 @@ from zimi.search import (
     _build_index_isolated,
     _loadavg_throttle,
     _write_index_meta,
+    pooled_db_use as _pooled_db_use,
 )
+from zimi.safety import loggable
 
 log = logging.getLogger("zimi")
 
@@ -160,6 +162,17 @@ _QID_FULL_SCAN_MAX_ENTRIES = 6_000_000  # Full-scan all Wikipedia ZIMs up to ~6M
 _qid_passive_cache = True  # passively extract Q-IDs from every article viewed
 
 
+def _games_note_index_change(qid=None):
+    """The Q-ID answers changed (an index was built, or a viewed article's Q-ID
+    was learned): rework the games' encyclopedia links, in the background.
+    A learned Q-ID that is no game's changes nothing."""
+    if not _srv.bundled("gamelinks"):  # zimi-mcp ships no games
+        return
+    from zimi import gamelinks
+
+    gamelinks.qids_changed(qid)
+
+
 def _qid_passive_extract(zim_name, article_path):
     """Extract and cache Q-ID from an article viewed in the reader.
     Called in a background thread on every iframe article load.
@@ -186,6 +199,7 @@ def _qid_passive_extract(zim_name, article_path):
             del archive  # drop our handle promptly; don't pool it
         if qid is not None:
             _qid_cache_store(zim_name, article_path, qid)
+            _games_note_index_change(qid)
     except Exception:
         pass  # background task, never fail visibly
 
@@ -215,6 +229,13 @@ def _get_qid_db(zim_name):
     return _srv._get_pooled_db(
         zim_name, _qid_db_pool, _qid_db_pool_lock, _qid_index_path
     )
+
+
+def _qid_index_built_elsewhere(zim_name):
+    """A child process replaced the index: drop this process's connection to the old one and let the games' links follow it
+    (the in-process build tells them itself)."""
+    _close_qid_db(zim_name)
+    _games_note_index_change()
 
 
 def _close_qid_db(zim_name):
@@ -323,6 +344,7 @@ def _build_qid_index(zim_name, zim_path):
         conn.close()
         _close_qid_db(zim_name)
         os.replace(tmp_path, db_path)
+        _games_note_index_change()
         dt = time.time() - t0
         log.info(
             "Q-ID index: built %s (%d Q-IDs from %d articles, %.1fs)",
@@ -386,7 +408,7 @@ def _qid_extract_from_html(archive, article_path):
         if m:
             return int(m.group(1).decode()[1:])
     except Exception as e:
-        log.debug("Q-ID extract failed for %s: %s", article_path, e)
+        log.debug("Q-ID extract failed for %s: %s", loggable(article_path), loggable(e))
     return None
 
 
@@ -405,7 +427,7 @@ def _qid_cache_store(zim_name, path, qid):
             )
             conn.commit()
     except Exception as e:
-        log.warning("Q-ID cache store failed for %s/%s Q%s: %s", zim_name, path, qid, e)
+        log.warning("Q-ID cache store failed for %s/%s Q%s: %s", loggable(zim_name), loggable(path), loggable(qid), loggable(e))
 
 
 def _qid_cache_lookup(zim_name, path):
@@ -418,7 +440,7 @@ def _qid_cache_lookup(zim_name, path):
             ).fetchone()
         return row[0] if row else None
     except Exception as e:
-        log.debug("Q-ID cache lookup failed for %s/%s: %s", zim_name, path, e)
+        log.debug("Q-ID cache lookup failed for %s/%s: %s", loggable(zim_name), loggable(path), loggable(e))
         return None
 
 
@@ -449,7 +471,7 @@ def _qid_lookup(zim_name, article_path):
                 return row[0]
         except Exception as e:
             log.debug(
-                "Q-ID index lookup failed for %s/%s: %s", zim_name, article_path, e
+                "Q-ID index lookup failed for %s/%s: %s", loggable(zim_name), loggable(article_path), loggable(e)
             )
     # Check on-demand cache (for large ZIMs)
     return _qid_cache_lookup(zim_name, article_path)
@@ -458,16 +480,17 @@ def _qid_lookup(zim_name, article_path):
 def _qid_find_in_zim(zim_name, qid_int):
     """Find an article path by Q-ID in a specific ZIM. Checks index AND cache."""
     # Check full index
-    conn = _get_qid_db(zim_name)
-    if conn is not None:
-        try:
-            row = conn.execute(
-                "SELECT path FROM qids WHERE qid=?", (qid_int,)
-            ).fetchone()
-            if row:
-                return row[0]
-        except Exception as e:
-            log.debug("Q-ID index find failed for %s/Q%s: %s", zim_name, qid_int, e)
+    with _pooled_db_use(_qid_db_pool, zim_name):   # an index being replaced waits for this query, never closes under it
+        conn = _get_qid_db(zim_name)
+        if conn is not None:
+            try:
+                row = conn.execute(
+                    "SELECT path FROM qids WHERE qid=?", (qid_int,)
+                ).fetchone()
+                if row:
+                    return row[0]
+            except Exception as e:
+                log.debug("Q-ID index find failed for %s/Q%s: %s", zim_name, qid_int, e)
     # Always check on-demand cache too (cross-cached entries from other lookups)
     return _qid_cache_find(zim_name, qid_int)
 
@@ -742,14 +765,14 @@ def _almanac_title_entry_path(zim_name, title):
         except KeyError:
             continue
         except Exception as e:
-            log.debug("almanac title lookup %r in %s: %s", try_path, zim_name, e)
+            log.debug("almanac title lookup %s in %s: %s", loggable(repr(try_path)), loggable(zim_name), loggable(e))
             continue
         try:
             if entry.is_redirect:
                 entry = entry.get_redirect_entry()
             return entry.path
         except Exception as e:
-            log.debug("almanac redirect follow %r in %s: %s", try_path, zim_name, e)
+            log.debug("almanac redirect follow %s in %s: %s", loggable(repr(try_path)), loggable(zim_name), loggable(e))
             return try_path
     return None
 
@@ -921,7 +944,7 @@ def _build_all_qid_indexes_inner():
             for i, (name, path) in enumerate(need_build):
                 _background_step("qids", name, i)
                 try:
-                    _build_index_isolated("qids", name, path, _build_qid_index, _close_qid_db)
+                    _build_index_isolated("qids", name, path, _build_qid_index, _qid_index_built_elsewhere)
                     current += 1
                     _apply_qid_flags({name: True})
                     _background_ok("qids", name)
@@ -1199,7 +1222,7 @@ def _resolve_url_to_zim(url_str):
     try:
         parsed = urlparse(url_str)
     except Exception as e:
-        log.debug("Failed to parse URL %r: %s", url_str, e)
+        log.debug("Failed to parse URL %s: %s", loggable(repr(url_str)), loggable(e))
         return None
     host = (parsed.hostname or "").lower()
     if not host:
@@ -1348,9 +1371,9 @@ def get_article_languages(zim_name, article_path, qid=_QID_UNKNOWN):
     except Exception as e:
         log.debug(
             "Failed to read article for language detection in %s path %s: %s",
-            zim_name,
-            article_path,
-            e,
+            loggable(zim_name),
+            loggable(article_path),
+            loggable(e),
         )
         return {"languages": []}
 
@@ -1381,10 +1404,10 @@ def get_article_languages(zim_name, article_path, qid=_QID_UNKNOWN):
 
     log.debug(
         "interlang %s/%s: qid=%s src_project=%s",
-        zim_name,
-        article_path,
-        qid,
-        src_project,
+        loggable(zim_name),
+        loggable(article_path),
+        loggable(qid),
+        loggable(src_project),
     )
 
     # Step 0b: Check all target ZIMs for this Q-ID
@@ -1452,7 +1475,7 @@ def get_article_languages(zim_name, article_path, qid=_QID_UNKNOWN):
                 if len(seen_langs) >= 30:
                     break
         except Exception as e:
-            log.debug("Interlanguage link extraction failed for %s: %s", zim_name, e)
+            log.debug("Interlanguage link extraction failed for %s: %s", loggable(zim_name), loggable(e))
 
     # Strategy 2: Exact title match with Q-ID verification
     # Try the same path in other language ZIMs (works for "Pizza", "Albert Einstein", etc.)

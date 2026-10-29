@@ -86,8 +86,36 @@ KIWIX_ALIASES = {
     "maps_en_asia": [25.0, -11.0, 180.0, 82.0],
 }
 
-# StreetZim's 47 regions (the `osm-` names), by hand. [W, S, E, N].
+# StreetZim's regions (the `osm-` names), by hand. [W, S, E, N].
 STREETZIM = {
+    # Added with the 2026-10-28 catalog refresh. [W, S, E, N].
+    "osm-africa-light": [-18.0, -35.0, 52.0, 38.0],
+    "osm-austria-czech": [9.5, 46.3, 18.9, 51.1],
+    "osm-bahrain": [50.3, 25.8, 50.8, 26.3],
+    "osm-balkans": [13.3, 39.6, 23.1, 46.9],
+    "osm-benelux": [2.5, 49.4, 7.3, 53.6],
+    "osm-britain-ireland": [-10.7, 49.8, 1.8, 60.9],
+    "osm-california-langproto": [-124.5, 32.5, -114.1, 42.0],
+    "osm-canada": [-141.0, 41.7, -52.6, 83.1],
+    "osm-carpathians": [16.8, 43.6, 30.0, 49.9],
+    "osm-central-africa": [8.5, -13.5, 31.5, 23.5],
+    "osm-east-polynesia": [-160.0, -28.0, -134.0, -7.0],
+    "osm-france": [-5.2, 41.3, 9.6, 51.1],
+    "osm-germany": [5.9, 47.3, 15.0, 55.1],
+    "osm-greece": [19.4, 34.8, 29.7, 41.8],
+    "osm-horn-of-africa": [33.0, -1.7, 51.5, 18.0],
+    "osm-iberia": [-9.6, 35.9, 4.4, 43.8],
+    "osm-italy": [6.6, 35.5, 18.6, 47.1],
+    "osm-nordics": [4.5, 54.5, 31.6, 71.2],
+    "osm-north-africa": [-17.1, 19.5, 37.0, 37.6],
+    "osm-poland": [14.1, 49.0, 24.2, 54.9],
+    "osm-switzerland-border-de-ultralight": [5.9, 45.8, 10.5, 48.0],
+    "osm-switzerland-de": [5.9, 45.8, 10.5, 47.8],
+    "osm-switzerland-de-ultralight": [5.9, 45.8, 10.5, 47.8],
+    "osm-switzerland-light": [5.9, 45.8, 10.5, 47.8],
+    "osm-taiwan": [119.3, 21.8, 122.1, 25.4],
+    "osm-turkey": [25.6, 35.8, 44.8, 42.2],
+    "osm-west-coast-us": [-125.0, 32.5, -114.1, 49.0],
     "osm-africa": [-18.0, -35.0, 52.0, 38.0],
     "osm-alaska": [-170.0, 51.0, -129.0, 72.0],
     "osm-argentina": [-73.6, -55.2, -53.6, -21.8],

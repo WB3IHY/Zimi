@@ -161,7 +161,7 @@ function exchangeSearch(q) {
   if (!zims) return;
   fetch('/search?q=' + encodeURIComponent(_q) + '&zim=' + encodeURIComponent(zims) + '&limit=15&fast=1').then(function(r) { return r.json(); }).then(function(d) {
     var rows = (d.results || []).filter(function(r) { return /^questions\/\d+\//.test(r.path || ''); }).map(function(r) {
-      return { title: r.title, page: r.path, votes: '', answers: '', accepted: false, excerpt: r.snippet ? String(r.snippet).replace(/<[^>]+>/g, '') : '', tags: [], zim: r.zim };
+      return { title: r.title, page: r.path, votes: '', answers: '', accepted: false, excerpt: r.snippet ? stripTags(r.snippet) : '', tags: [], zim: r.zim };
     });
     _pages = 0; _page = 1;
     renderList('“' + _q + '”', rows, false);
