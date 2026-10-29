@@ -95,12 +95,11 @@ class _QidFixtureMixin:
             worker.join(timeout=10)
         _interlang._almanac_resolve_cache.clear()
         _interlang._almanac_resolve_cache.update(self._saved_alm_cache)
-        for conn in _interlang._qid_db_pool.values():
-            try:
-                conn.close()
-            except Exception:
-                pass
-        _interlang._qid_db_pool.clear()
+        # Through the server's own close, which waits for a query in flight (a background build may be reading one).
+        with _interlang._qid_db_pool_lock:
+            names = list(_interlang._qid_db_pool)
+        for name in names:
+            _interlang._close_qid_db(name)
         _interlang._qid_db_pool.update(self._saved_pool)
         with _interlang._qid_cache_op_lock:  # a background build may be mid-query on it
             if _interlang._qid_cache_conn is not None:

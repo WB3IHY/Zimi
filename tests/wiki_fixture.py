@@ -351,10 +351,12 @@ def index_wikipedias():
     import zimi.server as srv
     from zimi import interlang
 
+    # Through the server's own close, which waits for a query in flight (a background games-links build reads
+    # these): closing them by hand under a running query crashed Windows with an access violation.
     with interlang._qid_db_pool_lock:
-        for c in interlang._qid_db_pool.values():
-            c.close()
-        interlang._qid_db_pool.clear()
+        names = list(interlang._qid_db_pool)
+    for name in names:
+        interlang._close_qid_db(name)
     # Under the op lock too: a background games-links build may be mid-query on it.
     with interlang._qid_cache_lock, interlang._qid_cache_op_lock:
         if interlang._qid_cache_conn is not None:
