@@ -14,7 +14,7 @@
     var d = root.document, T = function (k, v) { return root.ZimiText ? root.ZimiText.T(k, v) : k; };
     if (open) open.close();
     var cover = d.createElement('div'), card = d.createElement('div'), h = d.createElement('h2'), p = d.createElement('p'), b = d.createElement('button');
-    cover.className = 'pk-cover'; cover.setAttribute('role', 'dialog'); cover.setAttribute('aria-modal', 'true'); cover.setAttribute('aria-label', T('pass.to', { name: o.name }));
+    cover.className = 'pk-cover'; cover.setAttribute('role', 'dialog'); cover.setAttribute('aria-label', T('pass.to', { name: o.name }));
     card.className = 'pk-card';
     h.textContent = T('pass.to', { name: o.name });
     p.textContent = o.text || T('pass.only', { name: o.name });

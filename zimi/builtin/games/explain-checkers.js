@@ -9,7 +9,7 @@
 (function (root) {
   'use strict';
   var N = 8, CENTRE_COLS = [2, 3, 4, 5], CENTRE_ROWS = [3, 4];
-  var EVEN = 20, BIG = 100;
+  var EVEN = 20, BIG = 100, TERMINAL = 5000;   // the engine scores a won game far above any material count
 
   function coord(i) { return 'abcdefgh'[i % N] + (N - ((i / N) | 0)); }
   var T = function (key, vars) { return root.ZimiText ? root.ZimiText.T(key, vars) : key; };
@@ -36,7 +36,7 @@
       replies.forEach(function (r) {
         var back = E.moves(E.apply(after, r), p), won = back.length && back[0].caps.length ? Math.max.apply(null, back.map(function (x) { return x.caps.length; })) : 0;
         var net = won - r.caps.length;
-        if (!exchange || net < exchange.net) exchange = { lost: r.caps.length, won: won, net: net };
+        if (!exchange || net < exchange.net) exchange = { lost: r.caps.length, won: won, net: net, takesMoved: r.caps.indexOf(m.to) >= 0 };
       });
     }
     var onEdge = col === 0 || col === N - 1;
@@ -53,7 +53,7 @@
       else if (!exposed && !crowned) text += ' ' + T('explain.checkers.nothingBack');
     } else if (crowned) {
       text = T('explain.checkers.crowned', v);
-    } else if (forced && exchange && exchange.net > 0) {
+    } else if (forced && exchange && exchange.net > 0 && exchange.takesMoved) {   // "offers a man" only when the forced jump takes the man that moved
       text = T('explain.checkers.offer', { side: side, to: to, won: pieces(exchange.won), lost: pieces(exchange.lost) });
     } else if (forced && exchange && exchange.net === 0) {
       text = T('explain.checkers.trade', { side: side, from: from, to: to, pieces: pieces(exchange.lost) });
@@ -68,7 +68,7 @@
     } else {
       text = T('explain.checkers.moves', v);
       var s = info.score;
-      if (typeof s === 'number') {
+      if (typeof s === 'number' && Math.abs(s) < TERMINAL) {   // a forced win is not "about a man"
         if (Math.abs(s) < EVEN) text += ' ' + T('explain.checkers.even');
         else text += ' ' + T(Math.abs(s) >= BIG ? 'explain.checkers.rateBig' : 'explain.checkers.rateSmall', { who: sideName(s > 0 ? p === E.RED : p !== E.RED) });
       }

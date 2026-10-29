@@ -115,7 +115,7 @@
       var who = names[seat], host = el('div', 'zs-cover'), card = el('div', 'zs-cover-card');
       host.setAttribute('role', 'dialog'); host.setAttribute('aria-modal', 'true'); host.setAttribute('aria-label', T('seats.passTo', { name: who }));
       var logo = el('img'); logo.src = 'mark.svg'; logo.alt = '';
-      var go = el('button', 'ar-btn gs-primary', T('seats.show', { name: who })); go.type = 'button'; go.setAttribute('aria-pressed', 'true');
+      var go = el('button', 'ar-btn gs-primary', T('seats.show', { name: who })); go.type = 'button';
       card.appendChild(logo); card.appendChild(el('small', null, T('seats.passToSmall'))); card.appendChild(el('h2', null, who));
       card.appendChild(el('p', null, note || T('seats.passNote')));
       card.appendChild(go); host.appendChild(card);

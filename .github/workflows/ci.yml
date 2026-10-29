@@ -61,7 +61,7 @@ jobs:
           case ",$LABELS," in *,not-a-release,*) echo "not-a-release: skipped"; exit 0;; esac
           [ "$HEAD_V" = "$BASE_V" ] && { echo "no new version: skipped"; exit 0; }
           now=$(date +%s); stale=0
-          for f in zimi/assets/catalog-snapshot.json.gz zimi/assets/catalog-icons.tar zimi/assets/streetzim-snapshot.json.gz; do
+          for f in zimi/assets/catalog-snapshot.json.gz zimi/assets/streetzim-snapshot.json.gz; do   # not the icon tar: a refresh that changes no icon changes no bytes, so its commit stays old
             when=$(git log -1 --format=%ct -- "$f"); age=$(( (now - ${when:-0}) / 86400 ))
             if [ "$age" -gt "$FRESH_DAYS" ]; then echo "::error::$f was last refreshed $age days ago; run scripts/build_catalog_snapshot.py for $HEAD_V"; stale=1; else echo "$f: $age days"; fi
           done

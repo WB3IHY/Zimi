@@ -45,7 +45,7 @@ Desktop Release builds the draft's body from the version's `## [X.Y.Z]` section 
 1. Squash merge the release branch to `main` with the version bumped in `pyproject.toml`
 2. Auto Release tags `vX.Y.Z` (never by hand)
 3. The tag triggers `desktop-release.yml` (DMGs, AppImage, Snap, Windows) and `docker-publish.yml`
-4. Once every build is in, Desktop Release creates the **draft** GitHub release with all its files attached. No draft means the builds are still running
+4. Once every build is in, Desktop Release creates the **draft** GitHub release with all its files attached. No draft means the builds are still running or one failed: check the Desktop Release run
 
 **If desktop builds fail:** The workflow YAML runs from the ref. If you dispatch manually, omit `--ref` to use main's workflow: `gh workflow run desktop-release.yml -f tag=v1.X.0`. Workflow fixes on main won't help if `--ref` points to the old tag.
 

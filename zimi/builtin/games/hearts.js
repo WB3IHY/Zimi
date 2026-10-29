@@ -295,7 +295,7 @@
       statusBtn.textContent = label; statusBtn.hidden = !label;
       statusBtn.disabled = !action; statusAction = action;
       // The one thing to do next is the filled amber button (Pass once three cards are chosen); until then it is a quiet ghost.
-      statusBtn.setAttribute('aria-pressed', action ? 'true' : 'false');
+      statusBtn.classList.toggle('gs-primary', !!action);
       el.sub.textContent = '';
     }
     function flash(text) { view.flash = text; board.say(text); paintHud(); session.later(function () { view.flash = ''; paintHud(); }, FLASH_MS); }

@@ -9,8 +9,8 @@ What is in it
   Each problem: id, collection, goal, the diagram (x black, o white) at the
   top-left of a 19x19 board, the target stones, every first move for Black the
   solver proved wins, and one line of play (White choosing its most stubborn
-  replies). The page uses the same solver to judge your moves, so any winning
-  move counts, not only the one in the list.
+  replies). Your first move is checked against that list of solver-proven
+  moves; the moves after it are judged by the solver.
 
 Collections
   Eye shapes (generated, ours): every walled-in eye space of 3 to 6 points
@@ -33,10 +33,9 @@ How the solver judges
   with room to breathe. A group lives when it holds two real eyes (neighbours
   all its own, not a false eye by the diagonals) or a straight line or T of four
   or more enclosed points. Moves outside the zone count as passing, which is how
-  tsumego are read. The solver can be wrong only in the direction of
-  missing a solution (a shape it does not recognise is searched on), not of
-  claiming one; the "alive" rule is the textbook one and is not a full
-  proof of life.
+  tsumego are read. The bounded search can miss solutions, and it can claim
+  wins that do not hold outside its zone or under its eye-shape heuristics;
+  the "alive" rule is the textbook one and is not a full proof of life.
 
 Checked by tests/test_games_content.cjs: every problem's line is legal from its
 position and ends with the goal reached; the first move is in the list; a third

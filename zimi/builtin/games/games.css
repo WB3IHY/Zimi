@@ -87,7 +87,7 @@ button { font: inherit; color: inherit; }
 .ar-btn[hidden] { display: none; }
 /* Hover is for a pointer: on a touch screen the last tap leaves the finger's place "hovered" and a second option looks chosen. */
 @media (hover: hover) { .ar-btn:hover { border-color: var(--accent); color: var(--accent); } }
-.ar-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.ar-btn[aria-pressed="true"], .ar-btn.gs-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 /* Disabled controls keep their place: ink3 text on the line border (the state is also in disabled / aria-disabled). */
 .ar-btn:disabled, .ar-btn[aria-disabled="true"] { color: var(--ink3); background: var(--surface); border-color: var(--line); cursor: default; }
 .ar-btn:disabled:hover, .ar-btn[aria-disabled="true"]:hover { color: var(--ink3); border-color: var(--line); }
@@ -120,10 +120,10 @@ body:not(:has(> .ar-bar)) .ar-sheet-card h2::before { content: ""; display: inli
    primary (amber, two thirds) last; a row with no primary shares the width equally. */
 .ar-sheet-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-4); }
 .ar-sheet-actions .ar-btn { flex: 1 1 0; min-width: 0; min-height: var(--target); padding: 0 var(--sp-2) 1px; }
-.ar-sheet-actions .ar-btn[aria-pressed="true"] { flex-grow: 2; }
-.ar-sheet-actions:has([aria-pressed="true"]) .ar-btn:not([aria-pressed="true"]) { background: transparent; border-color: transparent; color: var(--ink2); }
-.ar-sheet-actions:has([aria-pressed="true"]) .ar-btn:not([aria-pressed="true"]):hover { color: var(--accent); }
-@media (max-width: 520px) { .gs-actions .ar-btn[aria-pressed="true"] { flex: 1 1 100%; } }
+.ar-sheet-actions .ar-btn[aria-pressed="true"], .ar-sheet-actions .ar-btn.gs-primary { flex-grow: 2; }
+.ar-sheet-actions:has([aria-pressed="true"], .gs-primary) .ar-btn:not([aria-pressed="true"], .gs-primary) { background: transparent; border-color: transparent; color: var(--ink2); }
+.ar-sheet-actions:has([aria-pressed="true"], .gs-primary) .ar-btn:not([aria-pressed="true"], .gs-primary):hover { color: var(--accent); }
+@media (max-width: 520px) { .gs-actions .ar-btn[aria-pressed="true"], .gs-actions .ar-btn.gs-primary { flex: 1 1 100%; } }
 /* Option rows: a 13px sentence-case label on the left, a 44px segmented control on the right. */
 .gs-row, .zc-row { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--target); }
 .gs-row > label, .zc-row > label { flex: 1 1 auto; font-size: var(--fs-small); font-weight: 600; color: var(--ink2); text-transform: none; letter-spacing: 0; }

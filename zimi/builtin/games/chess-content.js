@@ -23,23 +23,32 @@
 
   // The opening index: a map from position key to the longest-named line reaching it, built lazily by replaying
   // every named line once. Names are looked up by walking back from the current move to the nearest named position.
+  function addOpening(E, index, row) {
+    var p = row.split('|'), pos = E.startPosition(), moves = p[2].split(' ');
+    for (var i = 0; i < moves.length; i++) {
+      var m = fromUci(E, pos, moves[i]);
+      if (!m) return;
+      E.make(pos, m);
+    }
+    var line = { eco: p[0], name: p[1], moves: moves };
+    index.lines.push(line);
+    var k = E.key(pos);
+    // keep the entry with the most moves: the most specific name for a transposition
+    if (!index.byKey[k] || index.byKey[k].moves.length < moves.length) index.byKey[k] = line;
+  }
   function openingIndex(E, rows) {
-    var byKey = {}, lines = [];
-    rows.split('\n').forEach(function (row) {
-      var p = row.split('|'), pos = E.startPosition(), moves = p[2].split(' '), ok = true;
-      for (var i = 0; i < moves.length; i++) {
-        var m = fromUci(E, pos, moves[i]);
-        if (!m) { ok = false; break; }
-        E.make(pos, m);
-      }
-      if (!ok) return;
-      var line = { eco: p[0], name: p[1], moves: moves };
-      lines.push(line);
-      var k = E.key(pos);
-      // keep the entry with the most moves: the most specific name for a transposition
-      if (!byKey[k] || byKey[k].moves.length < moves.length) byKey[k] = line;
-    });
-    return { byKey: byKey, lines: lines };
+    var index = { byKey: {}, lines: [] };
+    rows.split('\n').forEach(function (row) { addOpening(E, index, row); });
+    return index;
+  }
+  // The same index built a slice at a time, so a page that is in use (a game in play) is never frozen for the length of the replay.
+  var OPENING_SLICE = 150;
+  function openingIndexLater(E, rows, done) {
+    var index = { byKey: {}, lines: [] }, list = rows.split('\n'), at = 0;
+    (function slice() {
+      for (var end = Math.min(list.length, at + OPENING_SLICE); at < end; at++) addOpening(E, index, list[at]);
+      if (at < list.length) setTimeout(slice, 0); else done(index);
+    })();
   }
 
   // The named opening for a game so far: keys[i] is E.key after i moves (keys[0] is the start). Returns the
@@ -55,5 +64,5 @@
   // "Sicilian Defense: Najdorf Variation, English Attack" -> "Sicilian Defense"
   function family(name) { return name.split(':')[0]; }
 
-  root.ZimiChessContent = { fromUci: fromUci, toUci: toUci, parsePuzzle: parsePuzzle, openingIndex: openingIndex, openingFor: openingFor, family: family };
+  root.ZimiChessContent = { fromUci: fromUci, toUci: toUci, parsePuzzle: parsePuzzle, openingIndex: openingIndex, openingIndexLater: openingIndexLater, openingFor: openingFor, family: family };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

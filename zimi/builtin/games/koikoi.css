@@ -7,7 +7,7 @@
 .kk-capgroup { margin: 0 0 8px; }
 .kk-caphead { font-size: var(--fs-small); font-weight: 600; margin: 0 0 4px; color: var(--ink3); }
 .kk-capcards { display: flex; flex-wrap: wrap; gap: 4px; }
-.kk-capcards .kk-mini { position: relative; width: 44px; height: 62px; flex: none; }
+.kk-capcards .kk-mini { touch-action: auto; position: relative; width: 44px; height: 62px; flex: none; }
 .kk-none { font-size: var(--fs-small); color: var(--ink3); }
 @media (max-width: 440px) { .kk-strip { gap: 4px; padding: 0 4px; } .kk-pill { gap: 5px; padding: 0 7px; font-size: var(--fs-caption); } .kk-n { font-size: var(--fs-caption); } }
 .kk-strip[hidden] { display: none; }

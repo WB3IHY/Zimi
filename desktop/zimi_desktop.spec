@@ -174,7 +174,7 @@ if platform.system() == 'Windows':
 # of the games' source (zimi/gamelinks.py: games.json and the tile pictures).
 # Not the rest of the source folders: they are what the ZIMs were built from.
 _BUILTIN = os.path.join(REPO_ROOT, 'zimi/builtin')
-builtin_datas = [(z, 'zimi/builtin') for z in sorted(glob.glob(os.path.join(_BUILTIN, '*.zim')))] + [
+builtin_datas = [(z, 'zimi/builtin') for z in sorted(glob.glob(os.path.join(_BUILTIN, '*.zim')) + glob.glob(os.path.join(_BUILTIN, '*.zim.source')))] + [   # the .source stamps make the cache key (http.own_zims_version)
     (os.path.join(_BUILTIN, 'games/games.json'), 'zimi/builtin/games'),
     (os.path.join(_BUILTIN, 'games/thumbs'), 'zimi/builtin/games/thumbs'),
     (os.path.join(_BUILTIN, 'games/puzzles/icons'), 'zimi/builtin/games/puzzles/icons'),

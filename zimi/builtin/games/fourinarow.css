@@ -17,5 +17,5 @@
 @keyframes fr-drop { from { transform: translateY(var(--from)); } 82% { transform: translateY(0); } 90% { transform: translateY(-9px); } to { transform: translateY(0); } }
 @keyframes fr-pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
 @keyframes fr-bob { from { transform: translateY(0); } to { transform: translateY(4px); } }
-@media (prefers-reduced-motion: reduce) { .fr-disc.drop, .fr-disc.win, .fr-hintarrow { animation: none; } }
+@media (prefers-reduced-motion: reduce) { html:not([data-anim="normal"]):not([data-anim="fast"]) :is(.fr-disc.drop, .fr-disc.win, .fr-hintarrow) { animation: none; } }
 html[data-anim="off"] :is(.fr-disc.drop, .fr-disc.win, .fr-hintarrow) { animation: none; }

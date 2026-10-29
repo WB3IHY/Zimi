@@ -534,7 +534,6 @@
       var row = h('div', { class: 'ar-sheet-actions' });
       opts.actions.forEach(function (a) {
         var b = h('button', { class: 'ar-btn' + (a.primary ? ' gs-primary' : ''), type: 'button', text: a.label });
-        if (a.primary) b.setAttribute('aria-pressed', 'true');
         b.addEventListener('click', function () { if (a.keep) { if (a.onclick) a.onclick(); } else { api.close(); if (a.onclick) a.onclick(); } });
         row.appendChild(b);
       });
@@ -595,7 +594,7 @@
   Shell.clearRest = clearRest;
   function showRest(title, label, onNew) {
     clearRest();
-    var btn = h('button', { class: 'ar-btn gs-primary gs-rest-new', type: 'button', 'aria-pressed': 'true', text: label });
+    var btn = h('button', { class: 'ar-btn gs-primary gs-rest-new', type: 'button', text: label });
     btn.addEventListener('click', function () { clearRest(); onNew(); });
     rest = h('div', { class: 'gs-rest', role: 'status' }, [h('p', { text: title }), btn]);
     d.body.appendChild(rest);
@@ -743,7 +742,7 @@
     }
     card.appendChild(h('div', { class: 'gs-actions' }, [
       h('button', { class: 'ar-btn', type: 'button', text: T('shell.cancel'), onclick: back }),
-      h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: options.length ? T('shell.start') : T('shell.menu.new'), onclick: startNew })
+      h('button', { class: 'ar-btn gs-primary', type: 'button', text: options.length ? T('shell.start') : T('shell.menu.new'), onclick: startNew })
     ]));
   }
 
@@ -978,11 +977,11 @@
     head(T('shell.menu.watch'), false);
     if (watching) {
       card.appendChild(h('p', { class: 'gs-text', text: T('shell.watch.running') }));
-      card.appendChild(h('div', { class: 'gs-actions' }, [h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: T('shell.watch.stop'), onclick: function () { closeMenu(); stopWatching('stop'); } })]));
+      card.appendChild(h('div', { class: 'gs-actions' }, [h('button', { class: 'ar-btn gs-primary', type: 'button', text: T('shell.watch.stop'), onclick: function () { closeMenu(); stopWatching('stop'); } })]));
       return;
     }
     card.appendChild(h('p', { class: 'gs-text', text: T('shell.watch.intro') }));
-    card.appendChild(h('div', { class: 'gs-actions' }, [h('button', { class: 'ar-btn gs-primary', type: 'button', 'aria-pressed': 'true', text: T('shell.watch.start'), onclick: function () { closeMenu(); startWatching(); } })]));
+    card.appendChild(h('div', { class: 'gs-actions' }, [h('button', { class: 'ar-btn gs-primary', type: 'button', text: T('shell.watch.start'), onclick: function () { closeMenu(); startWatching(); } })]));
   }
   function loadScript(src, done) {
     var s = d.createElement('script'); s.src = src; s.onload = function () { done(); }; s.onerror = function () { done(new Error(src)); };

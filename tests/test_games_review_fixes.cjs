@@ -53,4 +53,44 @@ function questKeepsEnemiesOnScreen() {
 }
 questKeepsEnemiesOnScreen();
 
+// Backgammon explanation: a point is "made" only if it still holds two checkers when the turn is over.
+function backgammonMadePoints() {
+  const sb = {}; vm.createContext(sb);
+  ['util.js', 'text.js', 'backgammon.js', 'explain-backgammon.js'].forEach((f) => vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sb, { filename: f }));
+  const B = sb.BackgammonEngine, explain = sb.ZimiExplain.backgammon;
+  let seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  let n = 0, bad = 0;
+  for (let g = 0; g < 150; g++) {
+    let s = B.newGame();
+    for (let ply = 0; ply < 30; ply++) {
+      s.dice = [1 + Math.floor(rnd() * 6), 1 + Math.floor(rnd() * 6)];
+      if (s.dice[0] === s.dice[1]) s.dice = [s.dice[0], s.dice[0], s.dice[0], s.dice[0]];
+      s.rolled = true;
+      const opts = B.turnOptions(s);
+      if (!opts.length) { s.turn = 1 - s.turn; continue; }
+      const o = opts[Math.floor(rnd() * opts.length)], p = s.turn, made = new Set();
+      let cur = s;
+      o.steps.forEach((st) => { const land = st.to ? B.idxOf(p, st.to) : -1, own = land >= 0 ? B.countAt(cur, p, land) : 0; cur = B.applyStep(cur, st); if (own === 1 && st.to) made.add(st.to); });
+      const expect = [...made].filter((pt) => B.countAt(cur, p, B.idxOf(p, pt)) >= 2).length;
+      n++; if (explain(B, s, o.steps, s.dice).facts.madePoints !== expect) bad++;
+      cur.turn = 1 - p; cur.dice = []; cur.rolled = false; s = cur;
+    }
+  }
+  check(n > 1000 && bad === 0, 'backgammon explanation: a point later vacated is not reported as made (' + n + ' turns, ' + bad + ' wrong)');
+}
+backgammonMadePoints();
+
+// The opening index built a slice at a time is the one built at once; the built-in Bluff meanings are long enough to hide among the fakes.
+function openingsAndBluff() {
+  const sb = { setTimeout }; vm.createContext(sb);
+  ['util.js', 'chess-engine.js', 'chess-content.js', 'data/chess-openings.js', 'bluff-data.js'].forEach((f) => vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), sb, { filename: f }));
+  const E = sb.ZimiChessEngine(), C = sb.ZimiChessContent, rows = sb.ZimiChessOpenings.rows;
+  const whole = C.openingIndex(E, rows);
+  C.openingIndexLater(E, rows, (later) => {
+    check(later.lines.length === whole.lines.length && Object.keys(later.byKey).length === Object.keys(whole.byKey).length, 'openings: the sliced index equals the whole one (' + later.lines.length + ' lines)');
+  });
+  check(sb.BLUFF_WORDS.every((w) => w[1].length >= 25), 'bluff: every built-in meaning is at least the 25 characters real definitions are held to');
+}
+openingsAndBluff();
+
 engineKitDrop().then(() => process.exit(failures ? 1 : 0));

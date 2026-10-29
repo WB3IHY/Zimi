@@ -18,7 +18,7 @@
 .mm-card[data-done="true"] .mm-face { border-color: var(--ok); background: var(--card); }
 .mm-card[data-done="true"] { cursor: default; }
 .mm-card:not([data-done="true"]):hover .mm-back { border-color: var(--accent); }
-@media (prefers-reduced-motion: reduce) { .mm-inner { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { html:not([data-anim="normal"]):not([data-anim="fast"]) .mm-inner { animation: none !important; } }
 :root[data-anim="off"] .mm-inner { animation: none !important; }
 .mm-players { justify-content: center; margin: 0; }
 .mm-names { display: grid; gap: var(--sp-2); }

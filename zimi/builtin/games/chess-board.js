@@ -39,7 +39,7 @@
         if ((d & 7) === 0) edge += '<i class="cs-co r">' + (8 - (s >> 3)) + '</i>';
         var sig = html + edge;
         if (c.dataset.sig !== sig) { c.innerHTML = sig; c.dataset.sig = sig; }
-        var sq = E.squareName(s), label = p ? T('chess.sq.piece', { sq: sq, color: T(p > 0 ? 'board.white' : 'board.black').toLowerCase(), piece: T('chess.piece.' + Math.abs(p)).toLowerCase() }) : T(targets.hasOwnProperty(s) ? 'chess.sq.target' : 'chess.sq.empty', { sq: sq });
+        var sq = E.squareName(s), label = p ? T(targets.hasOwnProperty(s) ? 'chess.sq.capture' : 'chess.sq.piece', { sq: sq, color: T(p > 0 ? 'board.white' : 'board.black').toLowerCase(), piece: T('chess.piece.' + Math.abs(p)).toLowerCase() }) : T(targets.hasOwnProperty(s) ? 'chess.sq.target' : 'chess.sq.empty', { sq: sq });
         c.setAttribute('aria-label', s === v.sel ? T('chess.sq.selected', { label: label }) : label);
       }
       // A new last move glides from the square it left, unless the piece was dragged there.
@@ -60,7 +60,7 @@
   function promoButtons(E, box, pick) {
     [E.Q, E.R, E.B, E.N].forEach(function (t) {
       var b = document.createElement('button');
-      b.type = 'button'; b.className = 'ar-btn cs-promo-btn';
+      b.type = 'button'; b.className = 'ar-btn cs-promo-btn'; b.dataset.piece = t;
       b.setAttribute('aria-label', T('chess.piece.' + t));
       b.innerHTML = PC.svg(t, true) + '<span>' + T('chess.piece.' + t) + '</span>';
       b.addEventListener('click', function () { pick(t); });
@@ -68,8 +68,14 @@
     });
   }
   function promoColour(box, whiteToMove) {
-    var svgs = box.querySelectorAll('svg');
-    for (var i = 0; i < svgs.length; i++) svgs[i].setAttribute('class', 'cs-pc ' + (whiteToMove ? 'w' : 'b'));
+    // The side that promotes gets its own pieces: the artwork differs by colour, the class only the shadow.
+    var btns = box.querySelectorAll('button[data-piece]');
+    for (var i = 0; i < btns.length; i++) {
+      var old = btns[i].querySelector('svg'), holder = document.createElement('span');
+      holder.innerHTML = PC.svg(+btns[i].dataset.piece, whiteToMove);
+      var neu = holder.firstChild;
+      if (old && neu) { neu.setAttribute('class', 'cs-pc ' + (whiteToMove ? 'w' : 'b')); btns[i].replaceChild(neu, old); }
+    }
   }
 
   root.ZimiChessBoard = { create: create, promoButtons: promoButtons, promoColour: promoColour };

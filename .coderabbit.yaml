@@ -40,7 +40,7 @@ reviews:
     # per-puzzle pages, docs, icons), Fairy-Stockfish, thumbnails, the
     # generated text bundle, shipped datasets and recorded fixtures.
     - "!zimi/builtin/games/puzzles/**"
-    - "!zimi/builtin/games/engines/**"
+    - "!zimi/builtin/games/engines/fairy/**"
     - "!zimi/builtin/games/thumbs/**"
     - "!zimi/builtin/games/text/*.json"
     - "!zimi/builtin/games/text.js"

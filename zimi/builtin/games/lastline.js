@@ -236,7 +236,7 @@
       if (e.name === 'wave') status.reason(T('lastline.wave', { n: e.data }));
       else if (e.name === 'bonushit') status.reason(T('lastline.bonus', { n: e.data }));
       else if (e.name === 'hit' && st.lives > 0) status.say(st.lives === 1 ? T('lastline.lastLife') : '');
-      else if (e.name === 'over') page.finish();
+      else if (e.name === 'over') { burst.clear(); page.finish(); }   // the clock stops with the game, so a burst left running would hang there
     });
     st.events.length = 0;
   });

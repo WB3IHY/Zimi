@@ -67,14 +67,14 @@ def test_the_source_the_zims_were_built_from_does_not_ship(rel):
 def test_the_built_zims_ship_everywhere():
     zims = sorted(z.name for z in BUILTIN.glob("*.zim"))
     assert [re.sub(r"_\d{4}-\d{2}\.zim$", "", n) for n in zims] == ["zimi_almanac", "zimi_games"], zims
-    for z in BUILTIN.glob("*.zim"):
+    for z in list(BUILTIN.glob("*.zim")) + list(BUILTIN.glob("*.zim.source")):   # the stamps too: http.own_zims_version hashes them
         assert _shipped_by_pyproject(z.name) and _shipped_by_dockerignore(z.name), z.name
 
 
 def test_the_desktop_build_carries_the_same_files():
     spec = (ROOT / "desktop" / "zimi_desktop.spec").read_text(encoding="utf-8")
     assert "(os.path.join(REPO_ROOT, 'zimi/builtin'), 'zimi/builtin')" not in spec, "the whole folder"
-    for piece in ("*.zim", "games/games.json", "games/thumbs", "games/puzzles/icons"):
+    for piece in ("*.zim", "*.zim.source", "games/games.json", "games/thumbs", "games/puzzles/icons"):
         assert piece in spec, piece
 
 

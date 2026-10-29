@@ -16,13 +16,16 @@ function load() {
     if (!r.ok) throw new Error('fairy.wasm ' + r.status);
     return r.arrayBuffer();
   }).then(function (bytes) {
-    return self.FairyStockfish({
-      print: function (l) { lines.push(l); }, printErr: function () {},
-      // the glue would fetch fairy.wasm itself and refuse a wrong Content-Type; instantiate the bytes we already have
-      instantiateWasm: function (imports, done) {
-        WebAssembly.instantiate(bytes, imports).then(function (r) { done(r.instance, r.module); });
-        return {};
-      }
+    return new Promise(function (resolve, reject) {
+      self.FairyStockfish({
+        print: function (l) { lines.push(l); }, printErr: function () {},
+        // the glue would fetch fairy.wasm itself and refuse a wrong Content-Type; instantiate the bytes we already have
+        // (a refusal goes to reject: the glue's own promise would stay pending and the page would wait out its timeout)
+        instantiateWasm: function (imports, done) {
+          WebAssembly.instantiate(bytes, imports).then(function (r) { done(r.instance, r.module); }, reject);
+          return {};
+        }
+      }).then(resolve, reject);
     });
   }).then(function (m) {
     engine = m;

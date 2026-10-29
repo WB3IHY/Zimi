@@ -186,7 +186,7 @@
     els.tools.textContent = ''; els.tray.textContent = '';
     if (phase === 'pass') {
       var nx = 1 - actor;
-      button(els.tools, T('fleet.pass', { name: seats.name(nx) }), function () { handTo(nx, 'battle'); }).setAttribute('aria-pressed', 'true');
+      button(els.tools, T('fleet.pass', { name: seats.name(nx) }), function () { handTo(nx, 'battle'); }).classList.add('gs-primary');
       return;
     }
     if (phase !== 'place') return;

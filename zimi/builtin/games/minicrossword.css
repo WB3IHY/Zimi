@@ -32,4 +32,4 @@
 .cw-cols li button b { color: var(--accent); margin-inline-end: 4px; }
 .cw-cols li button.done { color: var(--ink2); }
 .cw-main .ar-btn[aria-disabled="true"] { color: var(--ink3); cursor: default; }
-@media (max-width: 380px) { .cw-grid { --cell: 54px; } }
+@media (max-width: 380px) { .cw-grid { --cell: min(54px, calc((100vw - 34px) / 5)); } }

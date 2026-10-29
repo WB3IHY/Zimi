@@ -41,13 +41,17 @@ What is changed from upstream (source/zimi-inline-search.patch, applied to the c
   shogi and janggi) is compiled, without ALLVARS (no duck, amazons and the like).
 
 How to re-vendor
-  1. Clone the repository, check out the new commit, apply
-     source/zimi-inline-search.patch (fix a conflict by hand; the places are
-     small), copy source/zimi_wasm.cpp into src/.
-  2. Run source/build.sh from the repository root (needs emsdk).
-  3. Copy fairy.js and fairy.wasm here, update the commit, date and sizes above,
+  Below, ZIMI is this repository's checkout and UP is a clone of the upstream
+  repository; each command says which directory to run it in.
+  1. In UP, check out the new commit, apply
+     $ZIMI/zimi/builtin/games/engines/fairy/source/zimi-inline-search.patch
+     (patch -p1 < that file; fix a conflict by hand, the places are small) and
+     copy source/zimi_wasm.cpp from the same folder into UP/src/.
+  2. In UP, run bash $ZIMI/zimi/builtin/games/engines/fairy/source/build.sh
+     (needs emsdk). It writes fairy.js and fairy.wasm into UP.
+  3. Copy UP/fairy.js and UP/fairy.wasm into $ZIMI/zimi/builtin/games/engines/fairy/, update the commit, date and sizes above,
      and replace LICENCE and AUTHORS from the new tree if they changed.
-  4. Run node tests/test_games_fairy.cjs: it runs the module in node and
+  4. In ZIMI, run node tests/test_games_fairy.cjs: it runs the module in node and
      compares its legal moves with ours for all six variants.
 
 How it is served

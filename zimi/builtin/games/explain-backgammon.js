@@ -49,6 +49,8 @@
       if (st.from >= BACK_ZONE && st.from < BAR && st.to < st.from && !ran) ran = st;
       moves.push(spot(st.from) + '/' + spot(st.to) + (cur.hit ? '*' : ''));
     });
+    // A point counts as made only if it still holds two or more checkers when the turn is over (a later step may leave it).
+    made = made.filter(function (pt, i) { return made.indexOf(pt) === i && E.countAt(cur, p, E.idxOf(p, pt)) >= 2; });
     var after = E.copy(cur); after.turn = 1 - p; after.dice = []; after.rolled = false;
     var blots = [];
     for (var r = 1; r <= 24; r++) if (E.countAt(after, p, E.idxOf(p, r)) === 1) blots.push(r);

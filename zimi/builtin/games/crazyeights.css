@@ -3,4 +3,4 @@
 .ce-glyph { font-size: var(--fs-title); line-height: 1; }
 .ce-red .ce-glyph { color: #ff8a80; }
 .ce-wild { background: var(--accent); color: var(--accent-ink); }
-.ce-wild.ce-red .ce-glyph { color: #8f1d1d; }
+.ce-wild.ce-red .ce-glyph { color: var(--accent-ink); }

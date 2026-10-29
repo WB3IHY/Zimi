@@ -56,7 +56,7 @@
     line = l; pos = E.startPosition(); step = 0; sans = []; lastMove = 0; sel = -1; targets = {}; cue = null;
     userColor = state.side === 'white' ? WHITE : BLACK; finished = false; mistakes = 0; hinted = false; hintLevel = 0; busy = false;
     els.name.textContent = line.eco + ' · ' + line.name;
-    els.next.setAttribute('aria-pressed', 'false');
+    els.next.classList.remove('gs-primary');
     paintMoves(); paintStats(); paint(); advance();
   }
   // Play the computer's moves until it is the player's turn or the line ends.
@@ -69,7 +69,7 @@
   function complete() {
     finished = true; busy = false;
     var k = lineKey(line); state.done[k] = (state.done[k] || 0) + 1; save();
-    els.next.setAttribute('aria-pressed', 'true');
+    els.next.classList.add('gs-primary');
     say(T(mistakes || hinted ? 'openings.complete' : 'openings.completeClean', { name: line.name }));
     paintStats();
     UI.end({ result: 'win', text: T(mistakes || hinted ? 'openings.complete' : 'openings.completeClean', { name: line.name }), newLabel: T('board.next'), onNew: nextLine });

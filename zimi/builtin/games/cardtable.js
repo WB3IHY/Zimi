@@ -197,12 +197,12 @@
       // A flash (a reason, a call) is a sentence of its own: nothing leads it. A lifted card says what the next tap does.
       var line = view.flash || (liftedPile && hd.text && !hd.choices ? T('cards.tapAgain') : hd.text) || '';
       statusText.textContent = !view.flash && hd.fact && line && (hd.fact + ' \u00b7 ' + line).length <= STATUS_MAX ? hd.fact + ' \u00b7 ' + line : (line || hd.fact || '');
-      statusBtn.textContent = hd.label || ''; statusBtn.hidden = !hd.label; statusBtn.disabled = !hd.action; statusBtn.setAttribute('aria-pressed', hd.action ? 'true' : 'false');   // the next thing to do is the filled amber button
+      statusBtn.textContent = hd.label || ''; statusBtn.hidden = !hd.label; statusBtn.disabled = !hd.action; statusBtn.classList.toggle('gs-primary', !!hd.action);   // the next thing to do is the filled amber button
       panel.textContent = ''; panel.hidden = !(hd.choices && hd.choices.length);
       (hd.choices || []).forEach(function (c, i) {
         var b = Z.h('button', { class: 'ar-btn ct-choice' + (c.cls ? ' ' + c.cls : ''), type: 'button', text: c.label });
         if (c.pressed !== undefined) b.setAttribute('aria-pressed', String(!!c.pressed));
-        if (c.primary) { b.setAttribute('aria-pressed', 'true'); b.classList.add('ct-primary'); }
+        if (c.primary) b.classList.add('ct-primary');
         if (c.aria) b.setAttribute('aria-label', c.aria);
         b.disabled = !!c.disabled;
         b.addEventListener('click', function () { if (choicesNow[i] && choicesNow[i].onclick) choicesNow[i].onclick(); });

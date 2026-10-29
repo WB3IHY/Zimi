@@ -76,7 +76,7 @@
     cursor = P.t.length ? P.t[0] : 0;
     $('gp-title').textContent = collName(P.c) + ' ' + problemNumber(P);
     $('gp-goal').textContent = T(P.k === 'kill' ? 'gp.goal.kill' : 'gp.goal.live');
-    $('gp-next').setAttribute('aria-pressed', 'false');
+    $('gp-next').classList.remove('gs-primary');
     state.last = P.c + ':' + P.id; save();
     say(''); showStats(); drawBoard();
   }
@@ -93,7 +93,7 @@
   function solved() {
     over = true; thinking = false; cue = -1;
     state.solved[P.c + ':' + P.id] = true; save();
-    $('gp-next').setAttribute('aria-pressed', 'true');
+    $('gp-next').classList.add('gs-primary');
     say(T(P.k === 'kill' ? 'gp.solved.kill' : 'gp.solved.live'));
     showStats(); drawBoard();
     UI.end({ result: 'win', text: T(P.k === 'kill' ? 'gp.solved.kill' : 'gp.solved.live'), newLabel: T('board.next'), onNew: next });

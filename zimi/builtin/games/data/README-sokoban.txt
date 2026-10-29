@@ -3,7 +3,8 @@ Sokoban levels (sokoban-levels.js)
 
 Source and licence
   DeepMind Boxoban levels, https://github.com/google-deepmind/boxoban-levels
-  Licence: Apache License 2.0 (the repository's LICENSE file). Credit:
+  Licence: Apache License 2.0 (the full text is in LICENSE-boxoban-apache-2.0.txt
+  beside this note). Credit:
   Guez, Mirza, Gregor, Kabra, Racaniere, Weber, Raposo, Santoro, Orseau,
   Eccles, Wayne, Silver, Lillicrap, Valdes, "An investigation of model-free
   planning: boxoban levels", 2018. Not an official Google product.

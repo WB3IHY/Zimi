@@ -491,7 +491,7 @@
       bar.style.top = Math.round(g.barY) + 'px';
       var btn = function (label, enabled, fn, primary, aria) {
         var b = Z.h('button', { class: 'ar-btn cn-btn', type: 'button', text: label });
-        if (primary) b.setAttribute('aria-pressed', 'true');
+        if (primary) b.classList.add('gs-primary');
         if (aria) b.setAttribute('aria-label', aria);
         b.disabled = !enabled; b.addEventListener('click', fn); bar.appendChild(b);
       };

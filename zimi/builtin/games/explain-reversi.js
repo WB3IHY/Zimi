@@ -36,8 +36,8 @@
     if (over) text = T('explain.reversi.over', v);
     else if (corner) text = T('explain.reversi.corner', v);
     else if (passes) text = T('explain.reversi.passes', { side: side, sq: sq, foe: sideName(p !== E.BLACK) });
+    else if (cornerOpen) text = T('explain.reversi.cornerOpen', v);   // giving away a corner outweighs cutting their moves
     else if (theirs > 0 && theirs <= FEW_MOVES && theirs < before) text = T('explain.reversi.cuts', v);
-    else if (cornerOpen) text = T('explain.reversi.cornerOpen', v);
     else if (besideCorner !== null) text = T('explain.reversi.besideCorner', v);
     else if (edge && theirs < before) text = T('explain.reversi.edgeTrims', v);
     else if (edge) text = T('explain.reversi.edge', v);

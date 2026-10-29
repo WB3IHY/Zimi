@@ -38,12 +38,12 @@
     // after the move it is the other side's turn (unless an extra turn): their best capture is `after`
     var theirNext = res.extra ? threatOn(R, res.state, me) : after;
     var lastPit = res.path.length ? res.path[res.path.length - 1] : p;
-    var facts = { side: key, pit: num, seeds: n, captured: took, extra: res.extra, grandSlam: res.grandSlam, feeding: feeding, threatBefore: before, threatAfter: theirNext, done: res.state.done };
+    var facts = { side: key, pit: num, seeds: n, lastPit: lastPit, captured: took, extra: res.extra, grandSlam: res.grandSlam, feeding: feeding, threatBefore: before, threatAfter: theirNext, done: res.state.done };
 
-    var end = T(res.state.done && !took ? 'explain.mancala.endDone' : 'explain.mancala.end');
+    var end = T(res.state.done ? 'explain.mancala.endDone' : 'explain.mancala.end');   // a capture can end the game too
     var v = { who: who, them: them, pit: num, seeds: seeds(n), end: end };
     var text;
-    if (took) text = T('explain.mancala.captures', { who: who, them: them, pit: num, seeds: seeds(n), took: seeds(took) });
+    if (took) text = T('explain.mancala.captures', { who: who, them: them, pit: num, seeds: seeds(n), took: seeds(took), end: end });
     else if (res.extra) text = T('explain.mancala.again', v);
     else if (res.grandSlam) text = T('explain.mancala.grandSlam', v);
     else if (feeding) text = T('explain.mancala.feeding', v);

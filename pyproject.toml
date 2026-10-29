@@ -114,6 +114,7 @@ zimi = [
   "static/**",
   "assets/**",
   "builtin/*.zim",
+  "builtin/*.zim.source",
   "builtin/games/games.json",
   "builtin/games/thumbs/**",
   "builtin/games/puzzles/icons/**",

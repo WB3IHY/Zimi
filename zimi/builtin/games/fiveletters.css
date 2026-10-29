@@ -1,9 +1,9 @@
 /* Five Letters: tiles, keyboard, the record sheet. Shared tokens: games.css, play.css. */
-:root { --fl-correct: #2f7d56; --fl-present: #c98a24; --fl-absent: #7a766b; --fl-on: #ffffff; }
+:root { --fl-correct: #2f7d56; --fl-present: #c98a24; --fl-absent: #7a766b; --fl-on: #ffffff; --fl-on-present: #0a0a0b; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --fl-correct: #2f8a5a; --fl-present: #b8801f; --fl-absent: #3a3a40; }
+  :root:not([data-theme="light"]) { --fl-correct: #256f48; --fl-present: #b8801f; --fl-absent: #3a3a40; }
 }
-:root[data-theme="dark"] { --fl-correct: #2f8a5a; --fl-present: #b8801f; --fl-absent: #3a3a40; }
+:root[data-theme="dark"] { --fl-correct: #256f48; --fl-present: #b8801f; --fl-absent: #3a3a40; }
 
 .fl-board { --tile: 58px; display: grid; gap: 6px; }
 .fl-row { display: grid; grid-template-columns: repeat(5, var(--tile)); gap: 6px; }
@@ -11,6 +11,7 @@
   font: 700 calc(var(--tile) * 0.5)/1 var(--font); text-transform: uppercase; color: var(--ink); }
 .fl-tile.filled { border-color: var(--line-strong); }
 .fl-tile.correct, .fl-tile.present, .fl-tile.absent { border-color: transparent; color: var(--fl-on); }
+.fl-tile.present, .fl-key.present { color: var(--fl-on-present); }
 .fl-tile.correct { background: var(--fl-correct); }
 .fl-tile.present { background: var(--fl-present); }
 .fl-tile.absent { background: var(--fl-absent); }

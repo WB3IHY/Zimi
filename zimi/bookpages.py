@@ -108,7 +108,9 @@ _TEX_RE = re.compile(
 )
 # A tag (never the "< b" of "a < b" in a formula), and the elements whose
 # text is not prose, where TeX is shown as written.
-_TAG_RE = re.compile(r"(<[a-z/!?][^>]{0,%d}>)" % TAG_MAX_CHARS, re.I)
+# The closing ">" is optional so that a tag longer than the bound still matches (its first TAG_MAX_CHARS characters) and stays
+# opaque, rather than falling out as text that a formula in an attribute would be wrapped in.
+_TAG_RE = re.compile(r"(<[a-z/!?][^>]{0,%d}>?)" % TAG_MAX_CHARS, re.I)
 _TAG_NAME_RE = re.compile(r"<(/?)([a-z][a-z0-9]*)", re.I)
 _VERBATIM = frozenset(("pre", "code", "kbd", "samp", "textarea", "script", "style"))
 

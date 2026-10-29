@@ -239,3 +239,19 @@ def test_echo_new_game_cancels_a_strict_mode_ending_on_its_way(open_game):
     page.wait_for_timeout(1500)
     assert page.evaluate("window.__ends") == 0, "the old round's ending opened an end sheet on the new round"
     assert not page.errors, page.errors
+
+
+def test_black_promotion_buttons_draw_black_pieces(open_game):
+    page = open_game("chesspuzzles")
+    game_ready(page, "window.ZimiChessBoard")
+    svgs = page.evaluate("""(() => {
+      const E = ZimiChessEngine(), out = {};
+      for (const white of [true, false]) {
+        const box = document.createElement('div');
+        ZimiChessBoard.promoButtons(E, box, () => {});
+        ZimiChessBoard.promoColour(box, white);
+        out[white] = box.querySelector('svg').outerHTML;
+      }
+      return out;
+    })()""")
+    assert svgs["true"] != svgs["false"], "the promotion pieces are white for both sides"

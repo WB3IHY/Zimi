@@ -14,5 +14,5 @@
 .gm-hint { fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 4 3; }
 .gm-pt:hover:not([aria-disabled="true"])::after { content: ""; position: absolute; inset: 22%; border-radius: 50%; background: rgba(0, 0, 0, 0.28); }
 @keyframes gm-pop { from { transform: scale(0.6); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .gm-new { animation: none; } }
+@media (prefers-reduced-motion: reduce) { html:not([data-anim="normal"]):not([data-anim="fast"]) .gm-new { animation: none; } }
 html[data-anim="off"] .gm-new { animation: none; }

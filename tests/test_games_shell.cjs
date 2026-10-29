@@ -216,7 +216,7 @@ function shellEnv(storage, path_, reduced) {
   s = M.Oware.newState();
   s.pits.fill(0); s.pits[5] = 1; s.pits[6] = 1; s.pits[11] = 4;
   r = explain(M.Oware, s, 5);
-  check(r.facts.captured === 2 && /capturing 2 seeds/.test(r.text), 'mancala: ending on a pit that becomes two takes it');
+  check(r.facts.captured === 2 && /taking 2 seeds from/.test(r.text) && !/lands on/.test(r.text), 'mancala: ending on a pit that becomes two takes it, in words true of Kalah too');
   s = M.Oware.newState();
   r = explain(M.Oware, s, 0);
   check(r.facts.captured === 0 && !/capturing/.test(r.text), 'mancala: no capture, none claimed');

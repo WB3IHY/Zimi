@@ -838,7 +838,7 @@
       var row = h('div', { class: 'ar-sheet-actions' });
       opts.actions.forEach(function (a) {
         var b = h('button', { class: 'ar-btn', type: 'button', text: a.label });
-        if (a.primary) b.setAttribute('aria-pressed', 'true');
+        if (a.primary) b.classList.add('gs-primary');
         b.addEventListener('click', function () { api.close(); if (a.onclick) a.onclick(); });
         row.appendChild(b);
       });
@@ -849,7 +849,7 @@
     d.addEventListener('keydown', onKey, true);
     d.body.appendChild(api.el);
     // Focus starts on the current choice, so its ring never reads as a second pick.
-    var first = card.querySelector('[aria-pressed="true"]') || card.querySelector('button, input');
+    var first = card.querySelector('.gs-primary') || card.querySelector('button, input');
     if (first) first.focus();
     return api;
   }

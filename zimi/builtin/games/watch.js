@@ -36,7 +36,7 @@
     var bPause = h('button', { class: 'ar-btn', type: 'button' }, 'Pause');
     var bStep = h('button', { class: 'ar-btn', type: 'button' }, 'Step');
     var bSpeed = h('button', { class: 'ar-btn', type: 'button' });
-    var bTake = h('button', { class: 'ar-btn', type: 'button', 'aria-pressed': 'true' }, 'Take over');
+    var bTake = h('button', { class: 'ar-btn gs-primary', type: 'button' }, 'Take over');
     var ctlRow = h('div', { class: 'gs-watch-ctl' });
     [bPause, bStep, bSpeed, bTake].forEach(function (b) { ctlRow.appendChild(b); });
     strip.textContent = '';

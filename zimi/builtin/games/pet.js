@@ -381,7 +381,7 @@
         if (played >= ROUND_COUNT) {
           var res2 = play(pet, wins), row = sheet.el.querySelector('.ar-sheet-actions'); row.textContent = '';
           statusP.textContent += ' ' + T('pet.score', { wins: wins, total: ROUND_COUNT });
-          var done = document.createElement('button'); done.type = 'button'; done.className = 'ar-btn gs-primary'; done.setAttribute('aria-pressed', 'true'); done.textContent = T('shell.close');
+          var done = document.createElement('button'); done.type = 'button'; done.className = 'ar-btn gs-primary'; done.textContent = T('shell.close');
           done.addEventListener('click', function () { sheet.close(); result(res2); animate('play', 600); after(); }); row.appendChild(done); done.focus();
         }
       }

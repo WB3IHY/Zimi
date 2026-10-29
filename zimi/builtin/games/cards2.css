@@ -17,7 +17,7 @@
 .br-call { min-height: 18px; border-radius: 4px; }
 .br-call.br-latest { background: var(--accent); color: var(--accent-ink); }
 .br-auction .br-red { color: #ff9e94; }
-.br-auction .br-latest .br-red { color: #8f1d1d; }
+.br-auction .br-latest .br-red { color: var(--accent-ink); }
 .br-box { position: absolute; left: 50%; transform: translateX(-50%); z-index: 35; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; width: min(100% - 16px, 400px); padding: 8px; border-radius: 12px; background: rgba(8, 24, 16, 0.9); }
 .br-levels { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .br-bid { min-width: 0; min-height: var(--br-bid-h, var(--target, 44px)); padding: 0 2px; font-weight: 600; }
@@ -29,7 +29,7 @@
 .cn-bar { position: absolute; left: 50%; transform: translateX(-50%); z-index: 36; display: flex; gap: 8px; justify-content: center; width: min(100% - 16px, 520px); }
 .cn-bar[hidden] { display: none; }
 .cn-btn { min-width: 64px; min-height: 44px; padding: 0 12px; font-weight: 600; }
-.cn-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.cn-btn[aria-pressed="true"], .cn-btn.gs-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
 /* A meld's label sits under one card, so it keeps to the card's width. */
 .c2-tag.c2-meld { padding: 2px 3px; }

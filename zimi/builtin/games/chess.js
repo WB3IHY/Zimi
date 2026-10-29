@@ -98,7 +98,7 @@
     openingRequested = true;
     var s = document.createElement('script');
     s.src = 'data/chess-openings.js';
-    s.onload = function () { setTimeout(function () { openingIndex = root.ZimiChessContent.openingIndex(E, root.ZimiChessOpenings.rows); paintOpening(); }, 0); };
+    s.onload = function () { root.ZimiChessContent.openingIndexLater(E, root.ZimiChessOpenings.rows, function (index) { openingIndex = index; paintOpening(); }); };
     document.head.appendChild(s);
   }
   function paintMoves() {
