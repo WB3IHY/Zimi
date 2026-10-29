@@ -11,6 +11,7 @@ Run: pytest tests/test_own_zim_remove.py -v
 import json
 import os
 import pathlib
+import re
 import sys
 import threading
 import urllib.error
@@ -41,6 +42,7 @@ def served(tmp_path, monkeypatch):
 
     zdir = pathlib.Path(make_wiki_games_fixture.build(str(tmp_path)))  # tmp_path/zims
     monkeypatch.setenv("ZIMI_BUILTIN_ZIMS", "1")
+    monkeypatch.setenv("ZIMI_OFFLINE", "1")  # (a test server makes no outbound call: the catalog redraw after an Add serves its stored copy, not after a network try)
     monkeypatch.delenv("ZIMI_APPS", raising=False)
     monkeypatch.setattr(srv, "ZIM_DIR", str(zdir))
     monkeypatch.setattr(srv, "ZIMI_DATA_DIR", str(tmp_path / "data"))
@@ -238,7 +240,10 @@ def test_remove_from_library_gone_from_home_add_from_catalog_back(served):
         _shot(pg, "7-catalog-zimi-group")
         games.locator(".ci-add-btn").click()
         pg.wait_for_function("() => document.querySelectorAll('.ci-add-btn[onclick*=_addOwnZim]').length === 0", timeout=8000)
-        pg.get_by_role("button", name="you already have").click() if pg.get_by_role("button", name="you already have").count() else None
+        # The Add redraws the catalog (a loading state first); the fold stays open from before, so it is clicked only if it says Show.
+        pg.wait_for_function("() => !document.querySelector('#catalog-results .loading')", timeout=15000)
+        fold = pg.get_by_role("button", name=re.compile(r"^Show \d+ you already have"))
+        fold.click() if fold.count() else None
         games.locator(".ci-installed-badge").wait_for(timeout=8000)
         _shot(pg, "8-catalog-after-add")
         other.wait_for_function("() => (zimsCache || []).some(z => z.name === 'zimi_games')", timeout=8000)

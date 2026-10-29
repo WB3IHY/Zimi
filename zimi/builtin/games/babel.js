@@ -167,7 +167,10 @@
     });
   }
 
-  els.form.addEventListener('submit', function (e) { e.preventDefault(); var t = els.field.value; els.field.value = ''; guess(t); });
+  // (no form submit: the reader frame's sandbox has no allow-forms, so Chromium drops a submit before any handler hears it)
+  function submitGuess() { var t = els.field.value; els.field.value = ''; guess(t); }
+  els.guess.addEventListener('click', submitGuess);
+  els.field.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); submitGuess(); } });
   els.more.addEventListener('click', function () { if (g.phase === 'play' && g.shown < g.words[g.round].clues.length) { g.shown++; show(true); els.field.focus(); } });
   els.next.addEventListener('click', next);
   els.newBtn.addEventListener('click', newGame);

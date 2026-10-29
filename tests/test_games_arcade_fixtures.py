@@ -15,6 +15,7 @@ import functools
 import http.server
 import json
 import os
+import sys
 import threading
 
 import pytest
@@ -439,6 +440,11 @@ THUMB = """const thumb = (c) => {
   };""" % (THUMB_COLS, THUMB_ROWS)
 
 
+# Games whose sprites land on a different sub-pixel row on Linux Chromium than on macOS (a few cells move by more than any anti-aliasing tolerance):
+# their canvas is pinned only on the platform it was recorded on.
+PLATFORM_PICTURE = ("lander", "pinball")
+
+
 def same_picture(got, want):
     """Two thumbnails agree when no cell's mean brightness differs by more than the rounding the rasteriser is allowed."""
     if got is None or want is None:
@@ -622,6 +628,9 @@ def test_the_game_plays_out_as_recorded(served, browser, name):
     path = os.path.join(FIXTURES, name + ".json")
     if os.environ.get("ZIMI_RECORD_ARCADE"):
         os.makedirs(FIXTURES, exist_ok=True)
+        if name in PLATFORM_PICTURE:
+            for g in got:
+                g["canvas_on"] = sys.platform
         with open(path, "w") as f:
             json.dump(got, f, indent=1, sort_keys=True)
             f.write("\n")
@@ -630,5 +639,7 @@ def test_the_game_plays_out_as_recorded(served, browser, name):
         want = json.load(f)
     assert len(got) == len(want)
     for g, w in zip(got, want):
-        assert same_picture(g.pop("canvas"), w.pop("canvas")), "checkpoint %r: the canvas differs" % w["label"]
+        gc, wc = g.pop("canvas"), w.pop("canvas")
+        if w.pop("canvas_on", sys.platform) == sys.platform:   # (a fixture marked with its platform pins the picture only there: state and HUD are compared everywhere)
+            assert same_picture(gc, wc), "checkpoint %r: the canvas differs" % w["label"]
         assert g == w, "checkpoint %r differs" % w["label"]
